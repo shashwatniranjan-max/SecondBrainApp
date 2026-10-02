@@ -18,6 +18,7 @@ export const getKnowledge = async (req: Request, res: Response, next: NextFuncti
       tags: k.tags,
       dateAdded: k.dateAdded.toDateString(),
       source: k.source.url || k.source.originalName || k.source.kind,
+      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
       readingTime: k.readingTime,
       progress: k.progress,
       content: k.content,
@@ -70,6 +71,7 @@ export const searchKnowledge = async (req: Request, res: Response, next: NextFun
       tags: k.tags,
       dateAdded: k.dateAdded.toDateString(),
       source: k.source.url || k.source.originalName || k.source.kind,
+      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
       readingTime: k.readingTime,
       progress: k.progress,
       content: k.content,
@@ -102,6 +104,7 @@ export const getKnowledgeById = async (req: Request, res: Response, next: NextFu
       tags: k.tags,
       dateAdded: k.dateAdded.toDateString(),
       source: k.source.url || k.source.originalName || k.source.kind,
+      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
       readingTime: k.readingTime,
       progress: k.progress,
       content: k.content,
@@ -119,6 +122,16 @@ export const getKnowledgeById = async (req: Request, res: Response, next: NextFu
 export const addKnowledge = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
+    
+    // Parse tags if sent via multipart/form-data
+    if (typeof req.body.tags === 'string') {
+      try {
+        req.body.tags = JSON.parse(req.body.tags);
+      } catch (e) {
+        // Leave as is if parsing fails, Zod will complain
+      }
+    }
+
     const validatedData = addKnowledgeSchema.parse(req.body);
 
     const typeMapping: Record<string, string> = {
@@ -130,6 +143,35 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
     const sourceKind = validatedData.mode === 'url' ? 'url' : 
                       validatedData.mode === 'upload' ? 'upload' : 'text';
 
+    // Set file path if uploaded
+    let fileUrl = undefined;
+    let originalName = undefined;
+    let objectKey = undefined;
+    let mimeType = undefined;
+    let size = undefined;
+    
+    if (validatedData.mode === 'upload' && req.file) {
+      originalName = req.file.originalname;
+      mimeType = req.file.mimetype;
+      size = req.file.size;
+      
+      const { v4: uuidv4 } = require('uuid');
+      const safeFilename = originalName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      objectKey = `users/${userId}/knowledge/${uuidv4()}-${safeFilename}`;
+      
+      // Upload to Cloudflare R2
+      const { r2Service } = require('../services/r2Service');
+      await r2Service.uploadPdf(req.file.buffer, objectKey, mimeType);
+      
+    } else if (validatedData.mode === 'url') {
+      fileUrl = validatedData.content;
+    } else if (validatedData.mode === 'upload') {
+       // fallback if file not sent
+       originalName = 'Uploaded document';
+    } else {
+       originalName = 'Pasted text';
+    }
+
     const k = await Knowledge.create({
       userId,
       title: validatedData.title,
@@ -138,8 +180,11 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
       tags: validatedData.tags,
       source: {
         kind: sourceKind,
-        url: validatedData.mode === 'url' ? validatedData.content : undefined,
-        originalName: validatedData.mode === 'upload' ? 'Uploaded document' : 'Pasted text',
+        url: fileUrl,
+        originalName: originalName,
+        objectKey: objectKey,
+        mimeType: mimeType,
+        size: size,
       },
       content: [validatedData.content || 'Your new knowledge has been processed.'],
       keyIdeas: ['Ready for review', 'Available in your knowledge library'],
@@ -155,6 +200,7 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
       tags: k.tags,
       dateAdded: k.dateAdded.toDateString(),
       source: k.source.url || k.source.originalName || k.source.kind,
+      sourceUrl: `/api/knowledge/file/${k._id}`,
       readingTime: k.readingTime,
       progress: k.progress,
       content: k.content,
@@ -174,13 +220,46 @@ export const deleteKnowledge = async (req: Request, res: Response, next: NextFun
     const userId = req.user?.id;
     const { id } = req.params;
 
-    const deleted = await Knowledge.findOneAndDelete({ _id: id, userId });
+    const k = await Knowledge.findOne({ _id: id, userId });
     
-    if (!deleted) {
+    if (!k) {
       return sendError(res, 'Knowledge not found', 404);
     }
 
+    // Delete from R2 if it's an uploaded file
+    if (k.source.objectKey) {
+      const { r2Service } = require('../services/r2Service');
+      await r2Service.deletePdf(k.source.objectKey);
+    }
+
+    await Knowledge.deleteOne({ _id: id, userId });
+
     return sendSuccess(res, { message: 'Deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/knowledge/file/:id
+export const serveUploadedFile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    // Verify ownership
+    const k = await Knowledge.findOne({ 
+      _id: id,
+      userId 
+    });
+
+    if (!k || !k.source.objectKey) {
+      return sendError(res, 'File not found or unauthorized', 404);
+    }
+
+    const { r2Service } = require('../services/r2Service');
+    const presignedUrl = await r2Service.getPresignedPdfUrl(k.source.objectKey);
+    
+    return sendSuccess(res, { url: presignedUrl });
   } catch (error) {
     next(error);
   }

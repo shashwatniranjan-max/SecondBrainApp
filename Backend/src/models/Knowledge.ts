@@ -11,6 +11,9 @@ export interface IKnowledge extends Document {
     kind: string;
     url?: string;
     originalName?: string;
+    objectKey?: string;
+    mimeType?: string;
+    size?: number;
   };
   readingTime: number;
   progress: number;
@@ -41,6 +44,9 @@ const knowledgeSchema = new Schema<IKnowledge>(
       kind: { type: String, required: true },
       url: { type: String },
       originalName: { type: String },
+      objectKey: { type: String },
+      mimeType: { type: String },
+      size: { type: Number },
     },
     readingTime: { type: Number, default: 0 },
     progress: { type: Number, default: 0 },
