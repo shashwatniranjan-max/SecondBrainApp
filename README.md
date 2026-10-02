@@ -47,7 +47,7 @@ cd Backend
 npm install
 
 # Install frontend dependencies
-cd ../my-smart-second-brain
+cd ../frontend
 npm install
 ```
 
@@ -78,7 +78,7 @@ npm start
 
 Start the frontend development server:
 ```bash
-cd my-smart-second-brain
+cd frontend
 npm run dev
 ```
 
