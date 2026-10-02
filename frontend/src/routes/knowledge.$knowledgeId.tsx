@@ -162,7 +162,7 @@ function KnowledgeDetailPage() {
                     if (!newWindow) return;
                     try {
                       const token = localStorage.getItem("token");
-                      const res = await fetch(`http://localhost:5000${sourceUrl}`, {
+                      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}${sourceUrl}`, {
                         headers: { Authorization: `Bearer ${token}` },
                       });
                       if (!res.ok) throw new Error("Failed to load PDF");
