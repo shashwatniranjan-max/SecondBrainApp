@@ -14,6 +14,8 @@ import { Route as AddRouteImport } from './routes/add'
 import { Route as AskRouteImport } from './routes/ask'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SigninRouteImport } from './routes/signin'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as KnowledgeIndexRouteImport } from './routes/knowledge.index'
 import { Route as KnowledgeKnowledgeIdRouteImport } from './routes/knowledge.$knowledgeId'
 
@@ -42,6 +44,16 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SigninRoute = SigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KnowledgeIndexRoute = KnowledgeIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -59,6 +71,8 @@ export interface FileRoutesByFullPath {
   '/ask': typeof AskRoute
   '/knowledge': typeof KnowledgeRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/knowledge/$knowledgeId': typeof KnowledgeKnowledgeIdRoute
   '/knowledge/': typeof KnowledgeIndexRoute
 }
@@ -67,6 +81,8 @@ export interface FileRoutesByTo {
   '/add': typeof AddRoute
   '/ask': typeof AskRoute
   '/settings': typeof SettingsRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/knowledge/$knowledgeId': typeof KnowledgeKnowledgeIdRoute
   '/knowledge': typeof KnowledgeIndexRoute
 }
@@ -77,6 +93,8 @@ export interface FileRoutesById {
   '/ask': typeof AskRoute
   '/knowledge': typeof KnowledgeRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/knowledge/$knowledgeId': typeof KnowledgeKnowledgeIdRoute
   '/knowledge/': typeof KnowledgeIndexRoute
 }
@@ -88,6 +106,8 @@ export interface FileRouteTypes {
     | '/ask'
     | '/knowledge'
     | '/settings'
+    | '/signin'
+    | '/signup'
     | '/knowledge/$knowledgeId'
     | '/knowledge/'
   fileRoutesByTo: FileRoutesByTo
@@ -96,6 +116,8 @@ export interface FileRouteTypes {
     | '/add'
     | '/ask'
     | '/settings'
+    | '/signin'
+    | '/signup'
     | '/knowledge/$knowledgeId'
     | '/knowledge'
   id:
@@ -105,6 +127,8 @@ export interface FileRouteTypes {
     | '/ask'
     | '/knowledge'
     | '/settings'
+    | '/signin'
+    | '/signup'
     | '/knowledge/$knowledgeId'
     | '/knowledge/'
   fileRoutesById: FileRoutesById
@@ -115,6 +139,8 @@ export interface RootRouteChildren {
   AskRoute: typeof AskRoute
   KnowledgeRoute: typeof KnowledgeRouteWithChildren
   SettingsRoute: typeof SettingsRoute
+  SigninRoute: typeof SigninRoute
+  SignupRoute: typeof SignupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -154,6 +180,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signin': {
+      id: '/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/knowledge/': {
       id: '/knowledge/'
       path: '/'
@@ -191,6 +231,8 @@ const rootRouteChildren: RootRouteChildren = {
   AskRoute: AskRoute,
   KnowledgeRoute: KnowledgeRouteWithChildren,
   SettingsRoute: SettingsRoute,
+  SigninRoute: SigninRoute,
+  SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Bell,
   BookOpen,
@@ -11,10 +11,12 @@ import {
   Search,
   Settings,
   X,
+  LogOut,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -81,6 +83,23 @@ export function AppShell({
   actions?: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, isLoading, logout } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate({ to: "/signin" });
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-app">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 border-r bg-sidebar lg:flex lg:flex-col">
@@ -104,17 +123,24 @@ export function AppShell({
             </div>
           </div>
         </div>
-        <div className="border-t p-4">
+        <div className="border-t p-4 flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="grid size-9 place-items-center rounded-full bg-foreground text-xs font-bold text-background">
-              SN
+            <div className="grid size-9 place-items-center rounded-full bg-foreground text-xs font-bold text-background uppercase">
+              {user.name.substring(0, 2)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">Shashwat Niranjan</p>
+              <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">Personal workspace</p>
             </div>
-            <ChevronDown className="size-4 text-muted-foreground" />
           </div>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground hover:text-foreground h-8 px-2"
+            onClick={logout}
+          >
+            <LogOut className="mr-2 size-4" />
+            Sign out
+          </Button>
         </div>
       </aside>
       {mobileOpen && (
@@ -124,7 +150,7 @@ export function AppShell({
             className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative h-full w-[280px] border-r bg-sidebar p-4 shadow-xl">
+          <aside className="relative h-full w-[280px] border-r bg-sidebar p-4 shadow-xl flex flex-col">
             <div className="mb-8 flex items-center justify-between">
               <Logo />
               <Button
@@ -136,7 +162,23 @@ export function AppShell({
                 <X />
               </Button>
             </div>
-            <NavItems close={() => setMobileOpen(false)} />
+            <div className="flex-1">
+              <NavItems close={() => setMobileOpen(false)} />
+            </div>
+            <div className="border-t pt-4 mt-auto">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="grid size-9 place-items-center rounded-full bg-foreground text-xs font-bold text-background uppercase">
+                  {user.name.substring(0, 2)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{user.name}</p>
+                </div>
+              </div>
+              <Button variant="outline" className="w-full justify-start" onClick={logout}>
+                <LogOut className="mr-2 size-4" />
+                Sign out
+              </Button>
+            </div>
           </aside>
         </div>
       )}

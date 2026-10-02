@@ -11,6 +11,7 @@ Do NOT build the backend, database, authentication, RAG pipeline, embeddings, ve
 Use realistic mock data and mock interactions so the application feels functional.
 
 Design direction:
+
 - Modern AI/SaaS product
 - Clean light theme
 - White and very light gray backgrounds
@@ -30,6 +31,7 @@ Design direction:
 Create these main pages:
 
 1. DASHBOARD
+
 - Sidebar navigation
 - Top header
 - Welcome section
@@ -42,6 +44,7 @@ Create these main pages:
 - A small section showing "Continue Learning"
 
 2. KNOWLEDGE LIBRARY
+
 - Search bar at the top
 - Filter tabs:
   All
@@ -60,12 +63,14 @@ Create these main pages:
 - Include realistic mock knowledge items
 
 3. ADD KNOWLEDGE
-Create a polished input interface with three options:
+   Create a polished input interface with three options:
+
 - Upload Document
 - Paste Text
 - Add URL
 
 Include:
+
 - Title
 - Description
 - Tags
@@ -75,11 +80,12 @@ Include:
 Show a realistic processing state for uploaded content.
 
 4. ASK MY BRAIN
-Create a premium AI chat interface.
+   Create a premium AI chat interface.
 
 The user should be able to ask questions about their personal knowledge.
 
 Include:
+
 - Conversation area
 - User question
 - AI response
@@ -94,7 +100,8 @@ Example question:
 Example response should be based on mock knowledge and clearly show citations/sources.
 
 5. KNOWLEDGE DETAIL
-Create a detailed knowledge page with:
+   Create a detailed knowledge page with:
+
 - Title
 - Type
 - Tags
@@ -112,6 +119,7 @@ Ask My Brain
 Settings
 
 Create reusable components for:
+
 - Sidebar
 - Header
 - Knowledge Card
