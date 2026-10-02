@@ -48,6 +48,7 @@ function AddKnowledgePage() {
   const [tagInput, setTagInput] = useState("");
   const [content, setContent] = useState("");
   const [fileName, setFileName] = useState("");
+  const [fileObj, setFileObj] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [progress, setProgress] = useState(0);
   useEffect(() => {
@@ -68,6 +69,7 @@ function AddKnowledgePage() {
         tags,
         mode,
         content: mode === "upload" ? fileName : content,
+        ...(fileObj ? { file: fileObj } : {}),
       });
       setProgress(100);
       window.setTimeout(() => setStatus("success"), 280);
@@ -101,6 +103,7 @@ function AddKnowledgePage() {
                 setDescription("");
                 setContent("");
                 setFileName("");
+                setFileObj(null);
               }}
             >
               Add another
@@ -222,6 +225,7 @@ function AddKnowledgePage() {
                     const file = event.target.files?.[0];
                     if (file) {
                       setFileName(file.name);
+                      setFileObj(file);
                       if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ""));
                     }
                   }}

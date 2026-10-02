@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BrainCircuit,
@@ -38,6 +38,7 @@ export const Route = createFileRoute("/knowledge/$knowledgeId")({
 
 function KnowledgeDetailPage() {
   const { knowledgeId } = Route.useParams();
+  const navigate = useNavigate();
   const itemQuery = useServiceQuery(
     () => knowledgeService.getKnowledgeById(knowledgeId),
     [knowledgeId],
@@ -150,6 +151,48 @@ function KnowledgeDetailPage() {
                   ))}
                 </div>
               </div>
+              {itemQuery.data.type === "PDF" && itemQuery.data.sourceUrl && (
+                <Button
+                  className="w-full h-11"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!itemQuery.data || !itemQuery.data.sourceUrl) return;
+                    const sourceUrl = itemQuery.data.sourceUrl;
+                    const newWindow = window.open("", "_blank");
+                    if (!newWindow) return;
+                    try {
+                      const token = localStorage.getItem("token");
+                      const res = await fetch(`http://localhost:5000${sourceUrl}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      if (!res.ok) throw new Error("Failed to load PDF");
+                      const json = await res.json();
+                      newWindow.location.href = json.data.url;
+                    } catch (err) {
+                      console.error(err);
+                      newWindow.close();
+                    }
+                  }}
+                >
+                  Open PDF
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                className="w-full h-11"
+                onClick={async () => {
+                  try {
+                    if (itemQuery.data) {
+                      await knowledgeService.deleteKnowledge(itemQuery.data.id);
+                      navigate({ to: "/knowledge" });
+                    }
+                  } catch (err) {
+                    console.error("Failed to delete", err);
+                  }
+                }}
+              >
+                Delete Knowledge
+              </Button>
             </aside>
           </article>
           {relatedQuery.status === "success" && (

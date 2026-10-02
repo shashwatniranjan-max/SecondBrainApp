@@ -38,37 +38,6 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
-const statCards = [
-  {
-    label: "Knowledge items",
-    value: "128",
-    change: "+12 this month",
-    icon: BookOpen,
-    tone: "bg-primary-soft text-primary",
-  },
-  {
-    label: "Notes",
-    value: "54",
-    change: "42% of library",
-    icon: NotebookPen,
-    tone: "bg-mint text-mint-foreground",
-  },
-  {
-    label: "Documents",
-    value: "37",
-    change: "8 hrs to review",
-    icon: FileText,
-    tone: "bg-lavender text-lavender-foreground",
-  },
-  {
-    label: "Questions asked",
-    value: "86",
-    change: "+18 this week",
-    icon: BrainCircuit,
-    tone: "bg-warm text-warm-foreground",
-  },
-];
-
 function DashboardPage() {
   const query = useServiceQuery(() => knowledgeService.getKnowledge(), []);
   return (
@@ -97,7 +66,36 @@ function DashboardPage() {
         </div>
       </section>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statCards.map(({ label, value, change, icon: Icon, tone }) => (
+        {[
+          {
+            label: "Knowledge items",
+            value: query.data ? query.data.length.toString() : "0",
+            change: "Total saved",
+            icon: BookOpen,
+            tone: "bg-primary-soft text-primary",
+          },
+          {
+            label: "Notes",
+            value: query.data ? query.data.filter((i) => i.type === "Note").length.toString() : "0",
+            change: "Written notes",
+            icon: NotebookPen,
+            tone: "bg-mint text-mint-foreground",
+          },
+          {
+            label: "Documents",
+            value: query.data ? query.data.filter((i) => i.type === "PDF").length.toString() : "0",
+            change: "Uploaded PDFs",
+            icon: FileText,
+            tone: "bg-lavender text-lavender-foreground",
+          },
+          {
+            label: "Questions asked",
+            value: "0",
+            change: "Ask My Brain (Soon)",
+            icon: BrainCircuit,
+            tone: "bg-warm text-warm-foreground",
+          },
+        ].map(({ label, value, change, icon: Icon, tone }) => (
           <div key={label} className="rounded-lg border bg-card p-5 shadow-card">
             <div className="flex items-start justify-between">
               <div>

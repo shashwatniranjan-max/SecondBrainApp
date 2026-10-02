@@ -8,6 +8,7 @@ export interface KnowledgeItem {
   tags: string[];
   dateAdded: string;
   source: string;
+  sourceUrl?: string;
   readingTime: number;
   progress: number;
   content: string[];
@@ -21,6 +22,7 @@ export interface AddKnowledgeInput {
   tags: string[];
   mode: "upload" | "text" | "url";
   content: string;
+  file?: File;
 }
 
 export interface BrainSource {
@@ -44,5 +46,6 @@ export interface KnowledgeService {
   getKnowledgeById(id: string): Promise<KnowledgeItem | null>;
   searchKnowledge(query: string): Promise<KnowledgeItem[]>;
   addKnowledge(data: AddKnowledgeInput): Promise<KnowledgeItem>;
+  deleteKnowledge(id: string): Promise<void>;
   askBrain(question: string): Promise<BrainAnswer>;
 }
