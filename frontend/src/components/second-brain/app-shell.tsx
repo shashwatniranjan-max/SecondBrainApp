@@ -7,9 +7,11 @@ import {
   CircleHelp,
   LayoutDashboard,
   Menu,
+  Moon,
   Plus,
   Search,
   Settings,
+  Sun,
   X,
   LogOut,
 } from "lucide-react";
@@ -17,6 +19,13 @@ import { useState, type ReactNode, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { SearchDialog } from "@/components/second-brain/search-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -83,7 +92,10 @@ export function AppShell({
   actions?: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
   const { user, isLoading, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -91,6 +103,18 @@ export function AppShell({
       navigate({ to: "/signin" });
     }
   }, [user, isLoading, navigate]);
+
+  // Ctrl+K / Cmd+K keyboard shortcut to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -132,6 +156,16 @@ export function AppShell({
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">Personal workspace</p>
             </div>
+            {/* Dark mode toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0"
+              onClick={toggleTheme}
+              aria-label="Toggle dark mode"
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
           </div>
           <Button
             variant="ghost"
@@ -173,6 +207,16 @@ export function AppShell({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{user.name}</p>
                 </div>
+                {/* Dark mode toggle (mobile) */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  onClick={toggleTheme}
+                  aria-label="Toggle dark mode"
+                >
+                  {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+                </Button>
               </div>
               <Button variant="outline" className="w-full justify-start" onClick={logout}>
                 <LogOut className="mr-2 size-4" />
@@ -200,18 +244,49 @@ export function AppShell({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label="Search">
+            {/* Search button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Search"
+              onClick={() => setSearchOpen(true)}
+            >
               <Search />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-              <Bell />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-primary" />
-            </Button>
+            {/* Notifications popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Notifications"
+                  className="relative"
+                  onClick={() => setHasUnread(false)}
+                >
+                  <Bell />
+                  {hasUnread && (
+                    <span className="absolute right-2 top-2 size-1.5 rounded-full bg-primary" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-0">
+                <div className="border-b px-4 py-3">
+                  <p className="text-sm font-semibold">Notifications</p>
+                </div>
+                <div className="flex flex-col items-center gap-2 px-4 py-8">
+                  <Bell className="size-8 text-muted-foreground/40" />
+                  <p className="text-sm font-medium text-muted-foreground">No notifications yet</p>
+                  <p className="text-xs text-muted-foreground/70">We'll let you know when something arrives.</p>
+                </div>
+              </PopoverContent>
+            </Popover>
             {actions}
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1500px] p-4 md:p-8">{children}</main>
       </div>
+      {/* Search dialog */}
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }
