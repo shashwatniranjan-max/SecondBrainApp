@@ -20,6 +20,7 @@ import { ErrorState, LoadingState } from "@/components/second-brain/states";
 import { Button } from "@/components/ui/button";
 import { knowledgeService } from "@/services/knowledge-service";
 import { useServiceQuery } from "@/hooks/use-service-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,12 +41,20 @@ export const Route = createFileRoute("/")({
 
 function DashboardPage() {
   const query = useServiceQuery(() => knowledgeService.getKnowledge(), []);
+  const { user } = useAuth();
+
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const dateLabel = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const firstName = user?.name?.split(" ")[0] ?? "";
+
   return (
     <AppShell title="Dashboard" eyebrow="Overview">
       <section className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
-          <p className="mb-2 text-sm font-semibold text-primary">Thursday, October 1</p>
-          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Good evening, Shashwat.</h2>
+          <p className="mb-2 text-sm font-semibold text-primary">{dateLabel}</p>
+          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">{greeting}, {firstName}.</h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
             Your ideas are getting clearer. Pick up where you left off or add something new.
           </p>
