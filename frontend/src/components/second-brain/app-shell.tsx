@@ -226,9 +226,9 @@ export function AppShell({
           </aside>
         </div>
       )}
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-8">
-          <div className="flex items-center gap-3">
+      <div className="lg:pl-60 w-full min-w-0">
+        <header className="sticky top-0 z-30 flex h-[72px] w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Button
               className="lg:hidden"
               variant="ghost"
@@ -243,7 +243,7 @@ export function AppShell({
               <h1 className="text-lg font-bold md:text-xl">{title}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Search button */}
             <Button
               variant="ghost"
