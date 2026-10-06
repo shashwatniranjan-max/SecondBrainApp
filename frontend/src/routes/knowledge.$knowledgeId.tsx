@@ -18,6 +18,7 @@ import { ErrorState, LoadingState } from "@/components/second-brain/states";
 import { Button } from "@/components/ui/button";
 import { knowledgeService } from "@/services/knowledge-service";
 import { useServiceQuery } from "@/hooks/use-service-query";
+import { UrlEmbed } from "@/components/second-brain/url-embed";
 
 export const Route = createFileRoute("/knowledge/$knowledgeId")({
   head: () => ({
@@ -89,14 +90,24 @@ function KnowledgeDetailPage() {
               <div className="py-8">
                 <h3 className="mb-6 text-xl font-bold">Notes & highlights</h3>
                 <div className="space-y-6">
-                  {itemQuery.data.content.map((paragraph) => (
-                    <p
-                      key={paragraph}
-                      className="max-w-3xl text-[15px] leading-8 text-foreground/85"
-                    >
-                      {paragraph}
-                    </p>
-                  ))}
+                  {itemQuery.data.type === "URL" ? (
+                    <div className="my-6">
+                      <UrlEmbed 
+                        url={itemQuery.data.sourceUrl || itemQuery.data.content[0]} 
+                        title={itemQuery.data.title} 
+                        description={itemQuery.data.description} 
+                      />
+                    </div>
+                  ) : (
+                    itemQuery.data.content.map((paragraph) => (
+                      <p
+                        key={paragraph}
+                        className="max-w-3xl text-[15px] leading-8 text-foreground/85"
+                      >
+                        {paragraph}
+                      </p>
+                    ))
+                  )}
                 </div>
                 <div className="mt-8 rounded-lg border-l-4 border-primary bg-primary-soft p-5">
                   <p className="text-sm font-semibold text-primary">Core idea</p>
@@ -198,12 +209,14 @@ function KnowledgeDetailPage() {
           {relatedQuery.status === "success" && (
             <section className="mt-10 border-t pt-8">
               <SectionHeading title="Related knowledge" />
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="columns-1 gap-4 md:columns-3">
                 {relatedQuery.data
                   .filter((item) => item.id !== knowledgeId)
                   .slice(0, 3)
                   .map((item) => (
-                    <KnowledgeCard key={item.id} item={item} compact />
+                    <div key={item.id} className="break-inside-avoid mb-4">
+                      <KnowledgeCard item={item} compact />
+                    </div>
                   ))}
               </div>
             </section>

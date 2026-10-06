@@ -54,6 +54,9 @@ export function KnowledgeTypeIcon({
   );
 }
 
+import { UrlPreviewBanner } from "@/components/second-brain/url-embed";
+import { parseUrl } from "@/lib/url-parser";
+
 export function KnowledgeCard({
   item,
   compact = false,
@@ -61,18 +64,27 @@ export function KnowledgeCard({
   item: KnowledgeItem;
   compact?: boolean;
 }) {
+  const isUrl = item.type === "URL";
+  const parsedUrl = isUrl ? parseUrl(item.sourceUrl || item.content[0] || "") : null;
+
   return (
     <Link
       to="/knowledge/$knowledgeId"
       params={{ knowledgeId: item.id }}
       className={cn(
-        "group block rounded-lg border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-card-hover",
-        compact ? "p-4" : "p-5",
+        "group flex flex-col overflow-hidden rounded-lg border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-card-hover"
       )}
     >
-      <div className="flex gap-4">
-        <KnowledgeTypeIcon item={item} />
-        <div className="min-w-0 flex-1">
+      {isUrl && <UrlPreviewBanner url={item.sourceUrl || item.content[0] || ""} />}
+      
+      <div className={cn(
+        "flex gap-4",
+        isUrl ? "flex-col flex-1" : "",
+        compact ? "p-4" : "p-5"
+      )}>
+        {!isUrl && <KnowledgeTypeIcon item={item} />}
+        
+        <div className="min-w-0 flex-1 flex flex-col h-full">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
               <h3 className="truncate font-semibold text-card-foreground group-hover:text-primary">
@@ -87,10 +99,15 @@ export function KnowledgeCard({
                 {item.description}
               </p>
             </div>
-            <MoreHorizontal className="size-4 shrink-0 text-muted-foreground/60" />
+            {!isUrl && <MoreHorizontal className="size-4 shrink-0 text-muted-foreground/60" />}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {item.tags.slice(0, 2).map((tag) => (
+          <div className={cn("flex flex-wrap items-center gap-2", isUrl ? "mt-auto pt-4" : "mt-4")}>
+            {isUrl && parsedUrl && (
+              <span className="inline-flex h-6 items-center rounded-full border border-border/80 bg-muted/55 px-2.5 text-[11px] font-semibold text-muted-foreground capitalize">
+                {parsedUrl.platform}
+              </span>
+            )}
+            {item.tags.slice(0, isUrl ? 1 : 2).map((tag) => (
               <Tag key={tag}>{tag}</Tag>
             ))}
             <span className="ml-auto text-xs text-muted-foreground">{item.dateAdded}</span>
