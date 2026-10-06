@@ -200,7 +200,7 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
       tags: k.tags,
       dateAdded: k.dateAdded.toDateString(),
       source: k.source.url || k.source.originalName || k.source.kind,
-      sourceUrl: `/api/knowledge/file/${k._id}`,
+      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
       readingTime: k.readingTime,
       progress: k.progress,
       content: k.content,
