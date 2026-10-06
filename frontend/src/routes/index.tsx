@@ -141,9 +141,11 @@ function DashboardPage() {
                 </Button>
               }
             />
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="columns-1 gap-4 md:columns-2">
               {query.data.slice(0, 4).map((item) => (
-                <KnowledgeCard key={item.id} item={item} compact />
+                <div key={item.id} className="break-inside-avoid mb-4">
+                  <KnowledgeCard item={item} compact />
+                </div>
               ))}
             </div>
           </section>

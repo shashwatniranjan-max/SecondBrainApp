@@ -63,6 +63,7 @@ function KnowledgePage() {
       active = false;
     };
   }, [query]);
+  
   const filtered = useMemo(() => {
     if (!items) return [];
     const target = typeForFilter[filter];
@@ -143,9 +144,11 @@ function KnowledgePage() {
           }
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="columns-1 gap-4 md:columns-2 xl:columns-3">
           {filtered.map((item) => (
-            <KnowledgeCard key={item.id} item={item} />
+            <div key={item.id} className="break-inside-avoid mb-4">
+              <KnowledgeCard item={item} />
+            </div>
           ))}
         </div>
       )}
