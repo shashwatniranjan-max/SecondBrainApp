@@ -1,5 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckCircle2, FileText, Link2, NotebookPen, Plus, UploadCloud, X } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Link2,
+  NotebookPen,
+  Plus,
+  UploadCloud,
+  X,
+  Youtube,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/second-brain/app-shell";
 import { ProcessingState } from "@/components/second-brain/states";
@@ -38,6 +47,7 @@ const modes = [
   },
   { id: "text" as const, label: "Paste text", detail: "Notes or excerpts", icon: NotebookPen },
   { id: "url" as const, label: "Add URL", detail: "Article or webpage", icon: Link2 },
+  { id: "youtube" as const, label: "YouTube", detail: "Import transcript", icon: Youtube },
 ];
 
 function AddKnowledgePage() {
@@ -51,14 +61,42 @@ function AddKnowledgePage() {
   const [fileObj, setFileObj] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [progress, setProgress] = useState(0);
+  const [youtubeTranscript, setYoutubeTranscript] = useState<{
+    title: string;
+    originalUrl: string;
+    transcript: string[];
+  } | null>(null);
+  const [fetchingYoutube, setFetchingYoutube] = useState(false);
+  const [youtubeError, setYoutubeError] = useState("");
   useEffect(() => {
     if (status !== "processing") return;
     const timer = window.setInterval(() => setProgress((value) => Math.min(value + 8, 94)), 120);
     return () => window.clearInterval(timer);
   }, [status]);
+  const handleFetchYoutube = async () => {
+    if (!content.trim()) return;
+    setFetchingYoutube(true);
+    setYoutubeError("");
+    try {
+      const data = await knowledgeService.getYouTubeTranscript(content);
+      setYoutubeTranscript(data);
+      if (!title) setTitle(data.title);
+    } catch (err) {
+      setYoutubeError((err as Error).message || "Failed to fetch transcript");
+    } finally {
+      setFetchingYoutube(false);
+    }
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!title.trim() || (mode !== "upload" && !content.trim()) || (mode === "upload" && !fileName))
+    if (
+      !title.trim() ||
+      (mode === "text" && !content.trim()) ||
+      (mode === "url" && !content.trim()) ||
+      (mode === "upload" && !fileName) ||
+      (mode === "youtube" && !youtubeTranscript)
+    )
       return;
     setStatus("processing");
     setProgress(12);
@@ -68,7 +106,14 @@ function AddKnowledgePage() {
         description,
         tags,
         mode,
-        content: mode === "upload" ? fileName : content,
+        content:
+          mode === "upload"
+            ? fileName
+            : mode === "youtube" && youtubeTranscript
+              ? youtubeTranscript.transcript.join("\n\n")
+              : content,
+        originalUrl:
+          mode === "youtube" && youtubeTranscript ? youtubeTranscript.originalUrl : undefined,
         ...(fileObj ? { file: fileObj } : {}),
       });
       setProgress(100);
@@ -124,7 +169,7 @@ function AddKnowledgePage() {
             Add something worth remembering. We’ll make it searchable and connected.
           </p>
         </div>
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {modes.map(({ id, label, detail, icon: Icon }) => (
             <Button
               key={id}
@@ -133,6 +178,8 @@ function AddKnowledgePage() {
               onClick={() => {
                 setMode(id);
                 setContent("");
+                setYoutubeTranscript(null);
+                setYoutubeError("");
               }}
               className={cn(
                 "h-auto justify-start p-4 text-left shadow-none",
@@ -259,6 +306,59 @@ function AddKnowledgePage() {
                 placeholder="Paste your notes, highlights, or any text worth remembering..."
                 required
               />
+            ) : mode === "youtube" ? (
+              <div className="rounded-lg border bg-muted/25 p-5">
+                <Label htmlFor="youtube-url">YouTube Video URL</Label>
+                <div className="relative mt-2 flex gap-2">
+                  <div className="relative flex-1">
+                    <Youtube className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="youtube-url"
+                      type="url"
+                      value={content}
+                      onChange={(event) => {
+                        setContent(event.target.value);
+                        setYoutubeTranscript(null);
+                      }}
+                      className="h-11 bg-background pl-9"
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      required
+                    />
+                  </div>
+                  {!youtubeTranscript && (
+                    <Button
+                      type="button"
+                      onClick={handleFetchYoutube}
+                      disabled={fetchingYoutube || !content.trim()}
+                      className="h-11"
+                    >
+                      {fetchingYoutube ? "Fetching..." : "Fetch Transcript"}
+                    </Button>
+                  )}
+                </div>
+                {youtubeError && <p className="mt-3 text-sm text-destructive">{youtubeError}</p>}
+                {!youtubeTranscript ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Paste a YouTube link to extract its captions and save them as knowledge.
+                  </p>
+                ) : (
+                  <div className="mt-4 rounded border bg-background p-4 text-sm">
+                    <h4 className="font-semibold text-foreground mb-2">
+                      Transcript Preview ({youtubeTranscript.transcript.length} segments)
+                    </h4>
+                    <div className="h-40 overflow-y-auto text-muted-foreground space-y-2 pr-2">
+                      {youtubeTranscript.transcript.slice(0, 50).map((t, i) => (
+                        <p key={i}>{t}</p>
+                      ))}
+                      {youtubeTranscript.transcript.length > 50 && (
+                        <p className="italic">
+                          ...and {youtubeTranscript.transcript.length - 50} more segments.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="rounded-lg border bg-muted/25 p-5">
                 <Label htmlFor="url">Article or webpage URL</Label>
@@ -289,7 +389,11 @@ function AddKnowledgePage() {
               <p className="text-xs text-muted-foreground">
                 You can edit details later from your library.
               </p>
-              <Button type="submit" className="h-10">
+              <Button
+                type="submit"
+                className="h-10"
+                disabled={mode === "youtube" && !youtubeTranscript}
+              >
                 <Plus />
                 Add Knowledge
               </Button>

@@ -100,4 +100,17 @@ export const knowledgeService: KnowledgeService = {
     };
     return response;
   },
+  async getYouTubeTranscript(url: string) {
+    const res = await fetch(`${API_URL.replace("/api/knowledge", "/api/youtube/transcript")}`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.error || "Failed to fetch YouTube transcript");
+    }
+    const json = await res.json();
+    return json.data;
+  },
 };

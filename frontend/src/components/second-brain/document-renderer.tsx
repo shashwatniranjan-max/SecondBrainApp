@@ -104,7 +104,7 @@ function isCodeHeuristic(text: string): boolean {
     if (t.match(/^<[a-zA-Z]/)) codeScore += 1;
 
     // Lines that are almost entirely structural (e.g. single braces, brackets)
-    if (t.match(/^[\]\}\)\{\[\(]+;?$/)) codeScore += 2;
+    if (t.match(/^[]})({\\[(]+;?$/)) codeScore += 2;
 
     // ----- COMMON CODE SYMBOLS & PATTERNS (Anywhere in the line) -----
     if (
@@ -137,7 +137,7 @@ function isCodeHeuristic(text: string): boolean {
 
     // ----- PROSE INDICATORS (Negative Score) -----
     // Starts with a capital letter and ends with typical prose punctuation.
-    if (t.match(/^[A-Z].*[\.\?!]$/)) {
+    if (t.match(/^[A-Z].*[.?!]$/)) {
       // Make sure it's not a comment line
       if (
         !t.startsWith("//") &&
@@ -252,7 +252,7 @@ function parseMarkdownBlocks(text: string): ParsedBlock[] {
   // Post-processing: Auto-detect plain-text code blocks and merge consecutive ones
   const processedBlocks: ParsedBlock[] = [];
   for (const block of blocks) {
-    let finalBlock = { ...block };
+    const finalBlock = { ...block };
 
     if (finalBlock.type === "paragraph" && isCodeHeuristic(finalBlock.content)) {
       finalBlock.type = "code";

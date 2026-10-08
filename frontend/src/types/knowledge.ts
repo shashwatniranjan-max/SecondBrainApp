@@ -20,8 +20,9 @@ export interface AddKnowledgeInput {
   title: string;
   description: string;
   tags: string[];
-  mode: "upload" | "text" | "url";
+  mode: "upload" | "text" | "url" | "youtube";
   content: string;
+  originalUrl?: string;
   file?: File;
 }
 
@@ -48,4 +49,7 @@ export interface KnowledgeService {
   addKnowledge(data: AddKnowledgeInput): Promise<KnowledgeItem>;
   deleteKnowledge(id: string): Promise<void>;
   askBrain(question: string): Promise<BrainAnswer>;
+  getYouTubeTranscript(
+    url: string,
+  ): Promise<{ title: string; originalUrl: string; transcript: string[] }>;
 }

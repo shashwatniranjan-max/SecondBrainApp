@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes';
 import knowledgeRoutes from './routes/knowledgeRoutes';
 import askRoutes from './routes/askRoutes';
 import shareRoutes from './routes/shareRoutes';
+import youtubeRoutes from './routes/youtubeRoutes';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/ask', askRoutes);
 app.use('/api/share', shareRoutes);
+app.use('/api/youtube', youtubeRoutes);
 
 // Base route for health check
 app.get('/', (req, res) => {

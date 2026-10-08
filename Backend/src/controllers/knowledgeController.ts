@@ -137,11 +137,13 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
     const typeMapping: Record<string, string> = {
       url: 'URL',
       upload: 'PDF',
-      text: 'Note'
+      text: 'Note',
+      youtube: 'Article'
     };
 
     const sourceKind = validatedData.mode === 'url' ? 'url' : 
-                      validatedData.mode === 'upload' ? 'upload' : 'text';
+                      validatedData.mode === 'upload' ? 'upload' : 
+                      validatedData.mode === 'youtube' ? 'youtube' : 'text';
 
     // Set file path if uploaded
     let fileUrl = undefined;
@@ -165,6 +167,9 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
       
     } else if (validatedData.mode === 'url') {
       fileUrl = validatedData.content;
+    } else if (validatedData.mode === 'youtube') {
+      fileUrl = validatedData.originalUrl;
+      originalName = 'YouTube Transcript';
     } else if (validatedData.mode === 'upload') {
        // fallback if file not sent
        originalName = 'Uploaded document';
