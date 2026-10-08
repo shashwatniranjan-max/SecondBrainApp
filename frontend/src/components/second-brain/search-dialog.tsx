@@ -15,7 +15,10 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    knowledgeService.getKnowledge().then(setItems).catch(() => setItems([]));
+    knowledgeService
+      .getKnowledge()
+      .then(setItems)
+      .catch(() => setItems([]));
   }, [open]);
 
   // Filter items based on the search query
@@ -32,10 +35,14 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   const iconForType = (type: string) => {
     switch (type) {
-      case "Note": return NotebookPen;
-      case "PDF": return FileText;
-      case "URL": return Link2;
-      default: return BookOpen;
+      case "Note":
+        return NotebookPen;
+      case "PDF":
+        return FileText;
+      case "URL":
+        return Link2;
+      default:
+        return BookOpen;
     }
   };
 
@@ -103,7 +110,10 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
         {/* Footer hint */}
         <div className="border-t px-4 py-2">
           <p className="text-xs text-muted-foreground">
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-semibold">Esc</kbd> to close
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-semibold">
+              Esc
+            </kbd>{" "}
+            to close
           </p>
         </div>
       </div>

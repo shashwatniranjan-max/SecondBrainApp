@@ -35,9 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const res = await fetch(`${(import.meta.env['VITE_API_URL']?.replace(/\/$/, "") || "http://localhost:5000")}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${import.meta.env["VITE_API_URL"]?.replace(/\/$/, "") || "http://localhost:5000"}/api/auth/me`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         if (res.ok) {
           const data = await res.json();
           setUser(data.data.user);

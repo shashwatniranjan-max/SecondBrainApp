@@ -21,11 +21,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { SearchDialog } from "@/components/second-brain/search-dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -276,7 +272,9 @@ export function AppShell({
                 <div className="flex flex-col items-center gap-2 px-4 py-8">
                   <Bell className="size-8 text-muted-foreground/40" />
                   <p className="text-sm font-medium text-muted-foreground">No notifications yet</p>
-                  <p className="text-xs text-muted-foreground/70">We'll let you know when something arrives.</p>
+                  <p className="text-xs text-muted-foreground/70">
+                    We'll let you know when something arrives.
+                  </p>
                 </div>
               </PopoverContent>
             </Popover>

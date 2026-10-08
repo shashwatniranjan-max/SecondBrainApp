@@ -63,7 +63,7 @@ function KnowledgePage() {
       active = false;
     };
   }, [query]);
-  
+
   const filtered = useMemo(() => {
     if (!items) return [];
     const target = typeForFilter[filter];
