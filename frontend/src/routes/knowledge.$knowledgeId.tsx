@@ -9,7 +9,7 @@ import {
   Maximize,
   Minimize,
   Settings2,
-  Check
+  Check,
 } from "lucide-react";
 import { AppShell } from "@/components/second-brain/app-shell";
 import {
@@ -30,13 +30,19 @@ import { cn } from "@/lib/utils";
 
 function useFocusPreferences() {
   const [focusBg, setFocusBg] = useState<"light" | "sepia" | "dark">(() => {
-    return (localStorage.getItem("focusBg") as any) || "dark";
+    if (typeof window !== "undefined")
+      return (window.localStorage.getItem("focusBg") as any) || "dark";
+    return "dark";
   });
   const [focusFont, setFocusFont] = useState<"sans" | "serif">(() => {
-    return (localStorage.getItem("focusFont") as any) || "sans";
+    if (typeof window !== "undefined")
+      return (window.localStorage.getItem("focusFont") as any) || "sans";
+    return "sans";
   });
   const [focusFontSize, setFocusFontSize] = useState<number>(() => {
-    return Number(localStorage.getItem("focusFontSize")) || 18;
+    if (typeof window !== "undefined")
+      return Number(window.localStorage.getItem("focusFontSize")) || 18;
+    return 18;
   });
 
   useEffect(() => {
@@ -78,9 +84,12 @@ function PdfFocusViewer({ sourceUrl, onExit }: { sourceUrl: string; onExit: () =
     async function fetchUrl() {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${(import.meta.env['VITE_API_URL']?.replace(/\/$/, "") || "http://localhost:5000")}${sourceUrl}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${import.meta.env["VITE_API_URL"]?.replace(/\/$/, "") || "http://localhost:5000"}${sourceUrl}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         if (!res.ok) throw new Error("Failed to load PDF");
         const json = await res.json();
         setUrl(json.data.url);
@@ -97,11 +106,20 @@ function PdfFocusViewer({ sourceUrl, onExit }: { sourceUrl: string; onExit: () =
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-200">
       <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-[#121212]">
-        <Button variant="ghost" onClick={onExit} className="hover:bg-white/10 hover:text-white transition-colors">
+        <Button
+          variant="ghost"
+          onClick={onExit}
+          className="hover:bg-white/10 hover:text-white transition-colors"
+        >
           <ArrowLeft className="size-4 mr-2" /> Exit Focus
         </Button>
         {url && (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors"
+          >
             Open externally <ExternalLink className="size-3" />
           </a>
         )}
@@ -115,12 +133,16 @@ function PdfFocusViewer({ sourceUrl, onExit }: { sourceUrl: string; onExit: () =
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <span className="text-red-400 font-medium">Failed to load PDF</span>
-            <Button variant="outline" className="border-zinc-700 hover:bg-zinc-800 hover:text-white" onClick={onExit}>Return to details</Button>
+            <Button
+              variant="outline"
+              className="border-zinc-700 hover:bg-zinc-800 hover:text-white"
+              onClick={onExit}
+            >
+              Return to details
+            </Button>
           </div>
         )}
-        {url && (
-          <iframe src={url} className="w-full h-full border-0" title="PDF Viewer" />
-        )}
+        {url && <iframe src={url} className="w-full h-full border-0" title="PDF Viewer" />}
       </div>
     </div>
   );
@@ -150,7 +172,9 @@ function KnowledgeDetailPage() {
 
   if (focusMode && itemQuery.data) {
     if (itemQuery.data.type === "PDF" && itemQuery.data.sourceUrl) {
-      return <PdfFocusViewer sourceUrl={itemQuery.data.sourceUrl} onExit={() => setFocusMode(false)} />;
+      return (
+        <PdfFocusViewer sourceUrl={itemQuery.data.sourceUrl} onExit={() => setFocusMode(false)} />
+      );
     }
     const bgStyles = {
       light: "bg-[#fcfcfc] text-[#333333]",
@@ -167,66 +191,159 @@ function KnowledgeDetailPage() {
     const fontClass = prefs.focusFont === "serif" ? "font-serif" : "font-sans";
 
     return (
-      <div className={cn("min-h-screen flex justify-center py-12 px-6 sm:px-10 transition-colors duration-300", bgStyles, fontClass)}>
+      <div
+        className={cn(
+          "min-h-screen flex justify-center py-12 px-6 sm:px-10 transition-colors duration-300",
+          bgStyles,
+          fontClass,
+        )}
+      >
         <div className="w-full max-w-[850px]">
           <div className="flex items-center justify-between mb-10">
-            <Button variant="ghost" className="hover:bg-black/5 dark:hover:bg-white/5" onClick={() => setFocusMode(false)}>
+            <Button
+              variant="ghost"
+              className="hover:bg-black/5 dark:hover:bg-white/5"
+              onClick={() => setFocusMode(false)}
+            >
               <Minimize className="size-4 mr-2" /> Exit Focus
             </Button>
-            
+
             <div className="flex items-center gap-4">
               {itemQuery.data.sourceUrl && (
-                <a href={itemQuery.data.sourceUrl} target="_blank" rel="noopener noreferrer" className={cn("text-sm font-medium flex items-center gap-2 transition-colors", linkStyles)}>
+                <a
+                  href={itemQuery.data.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "text-sm font-medium flex items-center gap-2 transition-colors",
+                    linkStyles,
+                  )}
+                >
                   Open original source <ExternalLink className="size-3" />
                 </a>
               )}
-              
+
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hover:bg-black/5 dark:hover:bg-white/5">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-black/5 dark:hover:bg-white/5"
+                  >
                     <Settings2 className="size-5" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-72 p-5 space-y-6">
                   <h4 className="font-semibold text-sm mb-1">Display Options</h4>
-                  
+
                   <div className="space-y-3">
                     <label className="text-xs font-medium text-muted-foreground">Background</label>
                     <div className="flex gap-3">
-                      <button onClick={() => prefs.setFocusBg('light')} className={cn("size-8 rounded-full border-2 bg-[#fcfcfc] flex items-center justify-center", prefs.focusBg === 'light' ? 'border-primary ring-2 ring-primary/20' : 'border-border')} title="Light">{prefs.focusBg === 'light' && <Check className="size-4 text-black" />}</button>
-                      <button onClick={() => prefs.setFocusBg('sepia')} className={cn("size-8 rounded-full border-2 bg-[#f4ecd8] flex items-center justify-center", prefs.focusBg === 'sepia' ? 'border-primary ring-2 ring-primary/20' : 'border-border')} title="Sepia">{prefs.focusBg === 'sepia' && <Check className="size-4 text-black" />}</button>
-                      <button onClick={() => prefs.setFocusBg('dark')} className={cn("size-8 rounded-full border-2 bg-[#1f2022] flex items-center justify-center", prefs.focusBg === 'dark' ? 'border-primary ring-2 ring-primary/20' : 'border-border')} title="Dark">{prefs.focusBg === 'dark' && <Check className="size-4 text-white" />}</button>
+                      <button
+                        onClick={() => prefs.setFocusBg("light")}
+                        className={cn(
+                          "size-8 rounded-full border-2 bg-[#fcfcfc] flex items-center justify-center",
+                          prefs.focusBg === "light"
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "border-border",
+                        )}
+                        title="Light"
+                      >
+                        {prefs.focusBg === "light" && <Check className="size-4 text-black" />}
+                      </button>
+                      <button
+                        onClick={() => prefs.setFocusBg("sepia")}
+                        className={cn(
+                          "size-8 rounded-full border-2 bg-[#f4ecd8] flex items-center justify-center",
+                          prefs.focusBg === "sepia"
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "border-border",
+                        )}
+                        title="Sepia"
+                      >
+                        {prefs.focusBg === "sepia" && <Check className="size-4 text-black" />}
+                      </button>
+                      <button
+                        onClick={() => prefs.setFocusBg("dark")}
+                        className={cn(
+                          "size-8 rounded-full border-2 bg-[#1f2022] flex items-center justify-center",
+                          prefs.focusBg === "dark"
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "border-border",
+                        )}
+                        title="Dark"
+                      >
+                        {prefs.focusBg === "dark" && <Check className="size-4 text-white" />}
+                      </button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <label className="text-xs font-medium text-muted-foreground">Font</label>
                     <div className="flex gap-2">
-                      <Button variant={prefs.focusFont === 'sans' ? 'default' : 'outline'} className="flex-1 font-sans" onClick={() => prefs.setFocusFont('sans')}>Sans</Button>
-                      <Button variant={prefs.focusFont === 'serif' ? 'default' : 'outline'} className="flex-1 font-serif" onClick={() => prefs.setFocusFont('serif')}>Serif</Button>
+                      <Button
+                        variant={prefs.focusFont === "sans" ? "default" : "outline"}
+                        className="flex-1 font-sans"
+                        onClick={() => prefs.setFocusFont("sans")}
+                      >
+                        Sans
+                      </Button>
+                      <Button
+                        variant={prefs.focusFont === "serif" ? "default" : "outline"}
+                        className="flex-1 font-serif"
+                        onClick={() => prefs.setFocusFont("serif")}
+                      >
+                        Serif
+                      </Button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <label className="text-xs font-medium text-muted-foreground">Size</label>
                     <div className="flex items-center justify-between border rounded-md p-1">
-                      <Button variant="ghost" size="sm" onClick={() => prefs.setFocusFontSize(Math.max(14, prefs.focusFontSize - 1))}>A-</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          prefs.setFocusFontSize(Math.max(14, prefs.focusFontSize - 1))
+                        }
+                      >
+                        A-
+                      </Button>
                       <span className="text-sm font-medium">{prefs.focusFontSize}</span>
-                      <Button variant="ghost" size="sm" onClick={() => prefs.setFocusFontSize(Math.min(22, prefs.focusFontSize + 1))}>A+</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          prefs.setFocusFontSize(Math.min(22, prefs.focusFontSize + 1))
+                        }
+                      >
+                        A+
+                      </Button>
                     </div>
                   </div>
                 </PopoverContent>
               </Popover>
             </div>
           </div>
-          
+
           <div style={{ fontSize: `${prefs.focusFontSize}px` }}>
-            <h1 className="text-[2.2em] font-bold leading-tight mb-[0.6em]">{itemQuery.data.title}</h1>
-            {itemQuery.data.description && <p className="text-[1.15em] opacity-80 leading-relaxed mb-[2em]">{itemQuery.data.description}</p>}
-            
+            <h1 className="text-[2.2em] font-bold leading-tight mb-[0.6em]">
+              {itemQuery.data.title}
+            </h1>
+            {itemQuery.data.description && (
+              <p className="text-[1.15em] opacity-80 leading-relaxed mb-[2em]">
+                {itemQuery.data.description}
+              </p>
+            )}
+
             {itemQuery.data.type === "URL" ? (
               <div className="my-[2em]">
-                <UrlEmbed url={itemQuery.data.sourceUrl || itemQuery.data.content[0]} title={itemQuery.data.title} description={itemQuery.data.description} />
+                <UrlEmbed
+                  url={itemQuery.data.sourceUrl || itemQuery.data.content[0]}
+                  title={itemQuery.data.title}
+                  description={itemQuery.data.description}
+                />
               </div>
             ) : (
               <DocumentRenderer content={itemQuery.data.content} readingTheme={prefs.focusBg} />
@@ -269,7 +386,12 @@ function KnowledgeDetailPage() {
                       {itemQuery.data.tags.map((tag) => (
                         <Tag key={tag}>{tag}</Tag>
                       ))}
-                      <Button variant="outline" size="sm" className="ml-auto" onClick={() => setFocusMode(true)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="ml-auto"
+                        onClick={() => setFocusMode(true)}
+                      >
                         <Maximize className="size-4 mr-2" /> Focus Mode
                       </Button>
                     </div>
@@ -287,10 +409,10 @@ function KnowledgeDetailPage() {
                 <div className="space-y-6">
                   {itemQuery.data.type === "URL" ? (
                     <div className="my-6">
-                      <UrlEmbed 
-                        url={itemQuery.data.sourceUrl || itemQuery.data.content[0]} 
-                        title={itemQuery.data.title} 
-                        description={itemQuery.data.description} 
+                      <UrlEmbed
+                        url={itemQuery.data.sourceUrl || itemQuery.data.content[0]}
+                        title={itemQuery.data.title}
+                        description={itemQuery.data.description}
                       />
                     </div>
                   ) : (
@@ -300,7 +422,11 @@ function KnowledgeDetailPage() {
                 <div className="mt-8 rounded-lg border-l-4 border-muted bg-muted/30 p-5">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-semibold text-muted-foreground">Core idea</p>
-                    <Button variant="outline" size="sm" className="h-7 text-xs opacity-60 pointer-events-none">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs opacity-60 pointer-events-none"
+                    >
                       <BrainCircuit className="size-3 mr-1.5" />
                       Generate
                     </Button>
@@ -366,9 +492,12 @@ function KnowledgeDetailPage() {
                     if (!newWindow) return;
                     try {
                       const token = localStorage.getItem("token");
-                      const res = await fetch(`${(import.meta.env['VITE_API_URL']?.replace(/\/$/, "") || "http://localhost:5000")}${sourceUrl}`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                      });
+                      const res = await fetch(
+                        `${import.meta.env["VITE_API_URL"]?.replace(/\/$/, "") || "http://localhost:5000"}${sourceUrl}`,
+                        {
+                          headers: { Authorization: `Bearer ${token}` },
+                        },
+                      );
                       if (!res.ok) throw new Error("Failed to load PDF");
                       const json = await res.json();
                       newWindow.location.href = json.data.url;

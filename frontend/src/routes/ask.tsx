@@ -23,7 +23,6 @@ export const Route = createFileRoute("/ask")({
   component: AskPage,
 });
 
-
 function AskPage() {
   return (
     <AppShell title="Ask My Brain" eyebrow="Knowledge assistant">
@@ -33,7 +32,8 @@ function AskPage() {
         </div>
         <h2 className="text-3xl font-bold tracking-tight mb-2">Coming Soon</h2>
         <p className="text-muted-foreground max-w-md mx-auto mb-8">
-          We're training your AI assistant to understand and connect all your saved knowledge. Check back later to start asking questions!
+          We're training your AI assistant to understand and connect all your saved knowledge. Check
+          back later to start asking questions!
         </p>
         <Button asChild variant="outline">
           <Link to="/knowledge">Browse Knowledge Library</Link>

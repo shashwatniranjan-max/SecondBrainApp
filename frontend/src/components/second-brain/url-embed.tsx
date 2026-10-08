@@ -21,7 +21,7 @@ function YouTubeEmbed({ id }: { id: string }) {
 
 function TwitterEmbed({ url }: { url: string }) {
   const [error, setError] = useState(false);
-  
+
   useEffect(() => {
     // Safely load the Twitter widgets script if not present
     if ((window as any).twttr) {
@@ -68,7 +68,7 @@ function InstagramEmbed({ url }: { url: string }) {
     script.async = true;
     script.onerror = () => setError(true);
     document.body.appendChild(script);
-    
+
     return () => {
       script.onerror = null;
     };
@@ -94,14 +94,29 @@ function InstagramEmbed({ url }: { url: string }) {
         }}
       >
         <div style={{ padding: 16 }}>
-           <a href={url} style={{ color: '#000', textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">View on Instagram</a>
+          <a
+            href={url}
+            style={{ color: "#000", textDecoration: "none" }}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View on Instagram
+          </a>
         </div>
       </blockquote>
     </div>
   );
 }
 
-function GenericEmbed({ url, title, description }: { url: string; title?: string | undefined; description?: string | undefined }) {
+function GenericEmbed({
+  url,
+  title,
+  description,
+}: {
+  url: string;
+  title?: string | undefined;
+  description?: string | undefined;
+}) {
   let hostname = url;
   try {
     hostname = new URL(url).hostname;
@@ -112,7 +127,9 @@ function GenericEmbed({ url, title, description }: { url: string; title?: string
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           {title && <h4 className="font-semibold text-foreground truncate">{title}</h4>}
-          {description && <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{description}</p>}
+          {description && (
+            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{description}</p>
+          )}
           <p className="mt-2 text-xs text-muted-foreground truncate">{hostname}</p>
         </div>
         <a
@@ -129,9 +146,17 @@ function GenericEmbed({ url, title, description }: { url: string; title?: string
   );
 }
 
-export function UrlEmbed({ url, title, description }: { url?: string | undefined; title?: string | undefined; description?: string | undefined }) {
+export function UrlEmbed({
+  url,
+  title,
+  description,
+}: {
+  url?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+}) {
   if (!url) return null;
-  
+
   const parsed = parseUrl(url);
 
   if (parsed.platform === "youtube" && parsed.id) {
@@ -161,9 +186,9 @@ export function UrlPreviewBanner({ url }: { url: string }) {
   if (parsed.platform === "youtube" && parsed.id) {
     return (
       <div className="relative aspect-video w-full overflow-hidden bg-muted border-b">
-        <img 
-          src={`https://i.ytimg.com/vi/${parsed.id}/hqdefault.jpg`} 
-          alt="YouTube video thumbnail" 
+        <img
+          src={`https://i.ytimg.com/vi/${parsed.id}/hqdefault.jpg`}
+          alt="YouTube video thumbnail"
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
@@ -173,33 +198,33 @@ export function UrlPreviewBanner({ url }: { url: string }) {
         </div>
       </div>
     );
-  } 
-  
+  }
+
   if (parsed.platform === "twitter") {
     return (
       <div className="flex h-32 w-full items-center justify-center bg-[#1DA1F2] text-white border-b">
         <div className="flex flex-col items-center gap-2">
-           <Twitter className="size-8" />
-           <span className="text-xs font-semibold">X / Twitter</span>
+          <Twitter className="size-8" />
+          <span className="text-xs font-semibold">X / Twitter</span>
         </div>
       </div>
     );
-  } 
-  
+  }
+
   if (parsed.platform === "instagram") {
     return (
       <div className="flex h-32 w-full items-center justify-center bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white border-b">
         <div className="flex flex-col items-center gap-2">
-           <Instagram className="size-8" />
-           <span className="text-xs font-semibold">Instagram</span>
+          <Instagram className="size-8" />
+          <span className="text-xs font-semibold">Instagram</span>
         </div>
       </div>
     );
-  } 
+  }
 
   return (
     <div className="flex h-32 w-full items-center justify-center bg-muted text-muted-foreground border-b">
-       <Globe2 className="size-8" />
+      <Globe2 className="size-8" />
     </div>
   );
 }

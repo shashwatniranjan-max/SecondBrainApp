@@ -72,18 +72,14 @@ export function KnowledgeCard({
       to="/knowledge/$knowledgeId"
       params={{ knowledgeId: item.id }}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-lg border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-card-hover"
+        "group flex flex-col overflow-hidden rounded-lg border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-card-hover",
       )}
     >
       {isUrl && <UrlPreviewBanner url={item.sourceUrl || item.content[0] || ""} />}
-      
-      <div className={cn(
-        "flex gap-4",
-        isUrl ? "flex-col flex-1" : "",
-        compact ? "p-4" : "p-5"
-      )}>
+
+      <div className={cn("flex gap-4", isUrl ? "flex-col flex-1" : "", compact ? "p-4" : "p-5")}>
         {!isUrl && <KnowledgeTypeIcon item={item} />}
-        
+
         <div className="min-w-0 flex-1 flex flex-col h-full">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
