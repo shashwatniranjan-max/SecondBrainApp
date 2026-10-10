@@ -104,7 +104,7 @@ function isCodeHeuristic(text: string): boolean {
     if (t.match(/^<[a-zA-Z]/)) codeScore += 1;
 
     // Lines that are almost entirely structural (e.g. single braces, brackets)
-    if (t.match(/^[]})({\\[(]+;?$/)) codeScore += 2;
+    if (t.match(/^[\]{}()[]+;?$/)) codeScore += 2;
 
     // ----- COMMON CODE SYMBOLS & PATTERNS (Anywhere in the line) -----
     if (
