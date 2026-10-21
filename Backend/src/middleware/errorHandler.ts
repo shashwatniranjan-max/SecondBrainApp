@@ -26,5 +26,5 @@ export const errorHandler = (
     return sendError(res, 'Invalid ID format', 400);
   }
 
-  return sendError(res, 'Internal Server Error', 500);
+  return sendError(res, err.message || 'Internal Server Error', 500);
 };

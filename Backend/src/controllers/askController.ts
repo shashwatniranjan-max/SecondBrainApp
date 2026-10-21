@@ -28,7 +28,12 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
     const { question, conversationHistory } = askSchema.parse(req.body);
 
     // 1. Vector Search for relevant chunks with strict 0.65 true-cosine threshold
-    const retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.65);
+    let retrievedChunks: any[] = [];
+    try {
+      retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.65);
+    } catch (searchError: any) {
+      console.warn('Vector search notice (Atlas/Embedding):', searchError.message);
+    }
 
     // 2. Build the grounded prompt with intent gating (Saved Notes, General, Hybrid, Missing)
     const { systemInstruction, prompt } = ragService.buildGroundedPrompt(
@@ -44,7 +49,9 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
     } catch (modelError: any) {
       console.error('Answer generation error:', modelError.message);
       // Fallback message if API key missing or external model failure
-      if (retrievedChunks.length > 0) {
+      if (modelError.message?.includes('GEMINI_API_KEY')) {
+        answerText = '⚠️ **GEMINI_API_KEY is not configured on your server.**\n\nPlease add `GEMINI_API_KEY` to the Environment Variables in your Render Dashboard settings.';
+      } else if (retrievedChunks.length > 0) {
         answerText = `I found relevant information in your notes on **${retrievedChunks[0].title}**, but could not complete the AI generation: ${modelError.message}`;
       } else {
         answerText = `Could not reach the generation model: ${modelError.message}. Please check that your GEMINI_API_KEY is configured.`;
@@ -52,15 +59,17 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
     }
 
     // 4. Map real sources and real similarity scores (0-100)
-    const sources = retrievedChunks.map((c) => ({
-      knowledgeId: new mongoose.Types.ObjectId(c.knowledgeId),
-      title: c.title,
-      excerpt: c.text.length > 180 ? `${c.text.substring(0, 180)}...` : c.text,
-      relevance: Math.min(100, Math.round(c.score * 100)),
-    }));
+    const sources = retrievedChunks
+      .filter((c) => c.knowledgeId && mongoose.Types.ObjectId.isValid(c.knowledgeId))
+      .map((c) => ({
+        knowledgeId: new mongoose.Types.ObjectId(c.knowledgeId),
+        title: c.title,
+        excerpt: c.text && c.text.length > 180 ? `${c.text.substring(0, 180)}...` : (c.text || ''),
+        relevance: Math.min(100, Math.round((c.score || 0) * 100)),
+      }));
 
     const uniqueKnowledgeIds = [
-      ...new Set(retrievedChunks.map((c) => new mongoose.Types.ObjectId(c.knowledgeId))),
+      ...new Set(sources.map((s) => s.knowledgeId)),
     ];
 
     // 5. Context-aware suggested follow-up questions
