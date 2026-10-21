@@ -27,12 +27,19 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
 
     const { question, conversationHistory } = askSchema.parse(req.body);
 
-    // 1. Vector Search for relevant chunks with strict 0.65 true-cosine threshold
+    // 1. Check for casual greetings to skip unnecessary embedding and vector search overhead
+    const isCasualGreeting =
+      /^(hello|hi|hey|good\s+(morning|afternoon|evening)|howdy|greetings|thanks|thank you)\b/i.test(
+        question.trim()
+      ) && question.trim().split(/\s+/).length <= 4;
+
     let retrievedChunks: any[] = [];
-    try {
-      retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.65);
-    } catch (searchError: any) {
-      console.warn('Vector search notice (Atlas/Embedding):', searchError.message);
+    if (!isCasualGreeting) {
+      try {
+        retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.65);
+      } catch (searchError: any) {
+        console.warn('Vector search notice (Atlas/Embedding):', searchError.message);
+      }
     }
 
     // 2. Build the grounded prompt with intent gating (Saved Notes, General, Hybrid, Missing)

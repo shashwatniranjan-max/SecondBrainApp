@@ -113,13 +113,22 @@ class GeminiService {
     for (const model of modelChain) {
       try {
         console.log(`[RAG Generation] Attempting generation with model: ${model}...`);
-        const response = await ai.models.generateContent({
-          model,
-          contents: combinedPrompt,
-          config: {
-            temperature: 0.3,
-          },
-        });
+        // If Gemma 4 TPU queue in Google AI Studio takes >5s, fast-fail to Gemini Flash for instant response
+        const timeoutMs = model.startsWith('gemma') ? 5000 : 12000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Model ${model} timed out after ${timeoutMs}ms`)), timeoutMs)
+        );
+
+        const response = await Promise.race([
+          ai.models.generateContent({
+            model,
+            contents: combinedPrompt,
+            config: {
+              temperature: 0.3,
+            },
+          }),
+          timeoutPromise,
+        ]);
 
         if (response && response.text) {
           console.log(`[RAG Generation] Successfully generated response with: ${model}`);
