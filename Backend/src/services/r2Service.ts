@@ -62,4 +62,23 @@ export const r2Service = {
 
     await client.send(command);
   },
+
+  getFileBuffer: async (objectKey: string): Promise<Buffer> => {
+    const bucket = process.env.R2_BUCKET_NAME;
+    if (!bucket) throw new Error('Missing R2_BUCKET_NAME');
+
+    const client = getClient();
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+    });
+
+    const response = await client.send(command);
+    const stream = response.Body as any;
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    }
+    return Buffer.concat(chunks);
+  },
 };

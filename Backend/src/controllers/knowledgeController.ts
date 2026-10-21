@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Knowledge } from '../models/Knowledge';
 import { addKnowledgeSchema } from '../validators/knowledgeValidator';
 import { sendSuccess, sendError } from '../utils/response';
+import { ragService } from '../services/rag.service';
 
 // GET /api/knowledge
 export const getKnowledge = async (req: Request, res: Response, next: NextFunction) => {
@@ -195,6 +196,14 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
       keyIdeas: ['Ready for review', 'Available in your knowledge library'],
       readingTime: Math.ceil((validatedData.content?.length || 1000) / 1000), // Mock reading time
       accent: (['blue', 'lavender', 'mint'][Math.floor(Math.random() * 3)]) as any,
+      embeddingStatus: 'pending',
+    });
+
+    // Trigger non-blocking asynchronous RAG chunking and vector indexing
+    setImmediate(() => {
+      ragService.indexKnowledge(k._id).catch((err: any) => {
+        console.error(`Background indexing error for ${k._id}:`, err.message);
+      });
     });
 
     const formatted = {
@@ -223,7 +232,7 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
 export const deleteKnowledge = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const k = await Knowledge.findOne({ _id: id, userId });
     
@@ -236,6 +245,9 @@ export const deleteKnowledge = async (req: Request, res: Response, next: NextFun
       const { r2Service } = require('../services/r2Service');
       await r2Service.deletePdf(k.source.objectKey);
     }
+
+    // Cascade delete vector chunks from KnowledgeChunk collection
+    await ragService.deleteKnowledgeChunks(id);
 
     await Knowledge.deleteOne({ _id: id, userId });
 

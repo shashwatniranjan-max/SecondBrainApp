@@ -40,6 +40,7 @@ export interface BrainAnswer {
   sources: BrainSource[];
   relatedKnowledgeIds: string[];
   suggestedQuestions: string[];
+  createdAt?: string;
 }
 
 export interface KnowledgeService {
@@ -49,6 +50,8 @@ export interface KnowledgeService {
   addKnowledge(data: AddKnowledgeInput): Promise<KnowledgeItem>;
   deleteKnowledge(id: string): Promise<void>;
   askBrain(question: string): Promise<BrainAnswer>;
+  getAskHistory(): Promise<BrainAnswer[]>;
+  deleteAskQuery(id: string): Promise<void>;
   getYouTubeTranscript(
     url: string,
   ): Promise<{ title: string; originalUrl: string; transcript: string[] }>;

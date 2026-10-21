@@ -1,80 +1,163 @@
 import { Request, Response, NextFunction } from 'express';
-import { Knowledge } from '../models/Knowledge';
+import mongoose from 'mongoose';
 import { BrainQuery } from '../models/BrainQuery';
 import { sendSuccess, sendError } from '../utils/response';
+import { ragService } from '../services/rag.service';
+import { geminiService } from '../services/gemini.service';
 import { z } from 'zod';
 
 const askSchema = z.object({
-  question: z.string().min(1, 'Question is required'),
+  question: z.string().min(1, 'Question is required').max(1000, 'Question too long'),
+  conversationHistory: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      })
+    )
+    .optional(),
 });
 
 export const askBrain = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
-    const { question } = askSchema.parse(req.body);
-
-    // V1: Basic text search to mock RAG retrieval
-    const queryWords = question.toLowerCase().split(' ');
-    const regexPattern = queryWords.join('|');
-    
-    // Find somewhat relevant knowledge (mocking retrieval)
-    const relevantKnowledge = await Knowledge.find({
-      userId,
-      $or: [
-        { title: { $regex: regexPattern, $options: 'i' } },
-        { description: { $regex: regexPattern, $options: 'i' } },
-        { content: { $regex: regexPattern, $options: 'i' } },
-        { tags: { $regex: regexPattern, $options: 'i' } }
-      ]
-    }).limit(3);
-
-    // V1: Mock Answer generation
-    let answerText = "I searched your knowledge base but couldn't find a direct answer.";
-    let sources: any[] = [];
-    let relatedKnowledgeIds: any[] = [];
-
-    if (relevantKnowledge.length > 0) {
-      answerText = `Based on your notes, here is what I found regarding "${question}". I found relevant information in ${relevantKnowledge.length} of your documents.`;
-      
-      sources = relevantKnowledge.map((k, index) => ({
-        knowledgeId: k._id,
-        title: k.title,
-        excerpt: k.content.length > 0 ? k.content[0].substring(0, 100) + '...' : k.description,
-        relevance: 95 - (index * 5), // Mock relevance score
-      }));
-
-      relatedKnowledgeIds = relevantKnowledge.map(k => k._id);
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
     }
 
-    // Save the query for history
+    const { question, conversationHistory } = askSchema.parse(req.body);
+
+    // 1. Vector Search for relevant chunks with strict 0.65 true-cosine threshold
+    const retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.65);
+
+    // 2. Build the grounded prompt with intent gating (Saved Notes, General, Hybrid, Missing)
+    const { systemInstruction, prompt } = ragService.buildGroundedPrompt(
+      question,
+      retrievedChunks,
+      conversationHistory
+    );
+
+    // 3. Generate grounded answer with Gemma 4 via Gemini API
+    let answerText: string;
+    try {
+      answerText = await geminiService.generateAnswer(systemInstruction, prompt);
+    } catch (modelError: any) {
+      console.error('Answer generation error:', modelError.message);
+      // Fallback message if API key missing or external model failure
+      if (retrievedChunks.length > 0) {
+        answerText = `I found relevant information in your notes on **${retrievedChunks[0].title}**, but could not complete the AI generation: ${modelError.message}`;
+      } else {
+        answerText = `Could not reach the generation model: ${modelError.message}. Please check that your GEMINI_API_KEY is configured.`;
+      }
+    }
+
+    // 4. Map real sources and real similarity scores (0-100)
+    const sources = retrievedChunks.map((c) => ({
+      knowledgeId: new mongoose.Types.ObjectId(c.knowledgeId),
+      title: c.title,
+      excerpt: c.text.length > 180 ? `${c.text.substring(0, 180)}...` : c.text,
+      relevance: Math.min(100, Math.round(c.score * 100)),
+    }));
+
+    const uniqueKnowledgeIds = [
+      ...new Set(retrievedChunks.map((c) => new mongoose.Types.ObjectId(c.knowledgeId))),
+    ];
+
+    // 5. Context-aware suggested follow-up questions
+    const suggestedQuestions: string[] = [];
+    if (retrievedChunks.length > 0) {
+      suggestedQuestions.push(`Can you elaborate on ${retrievedChunks[0].title}?`);
+      suggestedQuestions.push(`What other topics connect to this in my notes?`);
+      suggestedQuestions.push(`Summarize the key takeaways`);
+    } else {
+      suggestedQuestions.push('What topics are currently in my library?');
+      suggestedQuestions.push('How can I organize my second brain notes?');
+      suggestedQuestions.push('Give me 3 productivity tips');
+    }
+
+    // 6. Persist to BrainQuery collection for real query history
     const brainQuery = await BrainQuery.create({
-      userId,
+      userId: new mongoose.Types.ObjectId(userId),
       question,
       answer: answerText,
       sources,
-      relatedKnowledgeIds,
-      suggestedQuestions: [
-        "Can you elaborate on this?",
-        "What related topics do I have?",
-        "Summarize this further"
-      ]
+      relatedKnowledgeIds: uniqueKnowledgeIds,
+      suggestedQuestions,
     });
 
     const formattedAnswer = {
       id: brainQuery._id.toString(),
       question: brainQuery.question,
       answer: brainQuery.answer,
-      sources: brainQuery.sources.map(s => ({
+      sources: brainQuery.sources.map((s) => ({
         knowledgeId: s.knowledgeId.toString(),
         title: s.title,
         excerpt: s.excerpt,
         relevance: s.relevance,
       })),
-      relatedKnowledgeIds: brainQuery.relatedKnowledgeIds.map(id => id.toString()),
+      relatedKnowledgeIds: brainQuery.relatedKnowledgeIds.map((id) => id.toString()),
       suggestedQuestions: brainQuery.suggestedQuestions,
+      createdAt: brainQuery.createdAt,
     };
 
     return sendSuccess(res, formattedAnswer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/ask/history
+ * Returns the user's past question & answer sessions
+ */
+export const getAskHistory = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    const history = await BrainQuery.find({ userId: new mongoose.Types.ObjectId(userId) })
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+
+    const formatted = history.map((q) => ({
+      id: q._id.toString(),
+      question: q.question,
+      answer: q.answer,
+      sources: (q.sources || []).map((s) => ({
+        knowledgeId: s.knowledgeId?.toString() || '',
+        title: s.title,
+        excerpt: s.excerpt,
+        relevance: s.relevance,
+      })),
+      relatedKnowledgeIds: (q.relatedKnowledgeIds || []).map((id) => id.toString()),
+      suggestedQuestions: q.suggestedQuestions || [],
+      createdAt: (q as any).createdAt,
+    }));
+
+    return sendSuccess(res, formatted);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/ask/history/:id
+ * Removes a specific query from history
+ */
+export const deleteAskQuery = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const id = String(req.params.id);
+
+    await BrainQuery.deleteOne({
+      _id: new mongoose.Types.ObjectId(id),
+      userId: new mongoose.Types.ObjectId(userId),
+    });
+
+    return sendSuccess(res, { message: 'Query deleted successfully' });
   } catch (error) {
     next(error);
   }

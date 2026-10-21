@@ -20,6 +20,8 @@ export interface IKnowledge extends Document {
   content: string[];
   keyIdeas: string[];
   accent?: 'blue' | 'lavender' | 'mint';
+  embeddingStatus?: 'pending' | 'completed' | 'failed';
+  chunkCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +58,12 @@ const knowledgeSchema = new Schema<IKnowledge>(
       type: String,
       enum: ['blue', 'lavender', 'mint'],
     },
+    embeddingStatus: {
+      type: String,
+      enum: ['pending', 'completed', 'failed'],
+      default: 'pending',
+    },
+    chunkCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
