@@ -101,11 +101,10 @@ class GeminiService {
     const ai = this.getClient();
     const combinedPrompt = `${systemInstruction}\n\n---\n\n${prompt}`;
     
-    // Ordered candidate models: Gemma 4 primary -> Gemini 3 Flash Preview -> Gemini 3.5 Flash
+    // Ordered candidate models: Gemma 4 primary -> Gemini 3 Flash Preview fallback
     const modelChain = [
       this.generationModel,
       'gemini-3-flash-preview',
-      'gemini-3.5-flash',
     ].filter((m, i, arr) => arr.indexOf(m) === i); // Deduplicate
 
     let lastError: any = null;

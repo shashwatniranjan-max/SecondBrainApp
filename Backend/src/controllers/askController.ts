@@ -36,7 +36,7 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
     let retrievedChunks: any[] = [];
     if (!isCasualGreeting) {
       try {
-        retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.65);
+        retrievedChunks = await ragService.searchSimilarChunks(userId, question, 4, 0.55);
       } catch (searchError: any) {
         console.warn('Vector search notice (Atlas/Embedding):', searchError.message);
       }

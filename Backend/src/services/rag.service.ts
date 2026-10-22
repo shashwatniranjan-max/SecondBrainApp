@@ -199,7 +199,7 @@ export class RAGService {
     userId: string,
     query: string,
     limit = 5,
-    minScore = 0.65
+    minScore = 0.55
   ): Promise<RetrievedChunk[]> {
     // 1. Embed incoming query using the identical model
     const queryVector = await geminiService.generateEmbedding(query);
@@ -240,7 +240,7 @@ export class RAGService {
           ...r,
           score: Math.max(0, 2 * (r.score !== undefined ? Number(r.score) : 0) - 1),
         }));
-        return this.formatAndDeduplicate(normalizedResults, minScore, limit);
+        return this.formatAndDeduplicate(normalizedResults, query, minScore, limit);
       }
     } catch (atlasError: any) {
       console.warn(
@@ -273,7 +273,7 @@ export class RAGService {
     // Sort descending by score
     scoredChunks.sort((a, b) => b.score - a.score);
 
-    return this.formatAndDeduplicate(scoredChunks, minScore, limit);
+    return this.formatAndDeduplicate(scoredChunks, query, minScore, limit);
   }
 
   /**
@@ -296,19 +296,66 @@ export class RAGService {
   }
 
   /**
-   * Helper: Filters by minScore and deduplicates to avoid multiple chunks from same source
+   * Helper: Filters by minScore, boosts exact title/keyword matches (hybrid retrieval),
+   * and deduplicates to avoid multiple chunks from same source
    */
   private formatAndDeduplicate(
     items: any[],
+    query: string,
     minScore: number,
     limit: number
   ): RetrievedChunk[] {
     if (!items || items.length === 0) return [];
 
-    // Gate: If the top match does not meet the strict relevance threshold,
+    // Extract significant query terms (lowercase, >= 3 chars, omitting stop words)
+    const queryLower = query.toLowerCase();
+    const stopWords = new Set([
+      'what', 'when', 'where', 'which', 'who', 'whom', 'this', 'that', 'with',
+      'from', 'your', 'have', 'does', 'tell', 'about', 'notes', 'note', 'show',
+      'give', 'find', 'some', 'into', 'then', 'than', 'them', 'they', 'explain'
+    ]);
+    const queryWords = queryLower
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !stopWords.has(w));
+
+    // Hybrid keyword & title match boosting
+    const boostedItems = items.map((item) => {
+      let score = item.score !== undefined ? Number(item.score) : 0;
+      const title = (item.metadata?.title || item.title || '').trim();
+      const titleLower = title.toLowerCase();
+
+      // Check if user's question explicitly mentions this note's title
+      const titleInQuery = titleLower.length >= 3 && (
+        queryLower.includes(titleLower) ||
+        new RegExp(`\\b${titleLower}\\b`, 'i').test(queryLower)
+      );
+
+      // Check if any distinct word from the title matches the query
+      const titleWordsInQuery = queryWords.some(
+        (w) => titleLower.includes(w) || w.includes(titleLower)
+      );
+
+      if (titleInQuery) {
+        // High confidence direct title mention
+        score = Math.max(score, score + 0.14);
+      } else if (titleWordsInQuery) {
+        score = Math.max(score, score + 0.07);
+      }
+
+      return {
+        ...item,
+        score: Math.min(1.0, score),
+      };
+    });
+
+    // Re-sort by boosted score
+    boostedItems.sort((a, b) => b.score - a.score);
+
+    // Gate: If the top match does not meet the relevance threshold,
     // this query is a general knowledge question or casual conversational remark.
     // Return empty so the assistant answers purely with general knowledge!
-    const topScore = items[0].score !== undefined ? Number(items[0].score) : 0;
+    const topScore = boostedItems[0].score !== undefined ? Number(boostedItems[0].score) : 0;
     if (topScore < minScore) {
       return [];
     }
@@ -316,7 +363,7 @@ export class RAGService {
     const filtered: RetrievedChunk[] = [];
     const seenDocuments = new Map<string, number>();
 
-    for (const item of items) {
+    for (const item of boostedItems) {
       const score = item.score !== undefined ? Number(item.score) : 0;
       if (score < minScore) continue;
 

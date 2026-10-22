@@ -39,6 +39,9 @@ async function runBackfill() {
       item.embeddingStatus = 'failed';
       await item.save();
     }
+
+    // Pacing delay to stay well within Google Gen AI rate limits
+    await new Promise((resolve) => setTimeout(resolve, 600));
   }
 
   console.log('--- Backfill Complete ---');
