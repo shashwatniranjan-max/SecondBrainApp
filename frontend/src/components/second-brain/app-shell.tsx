@@ -81,11 +81,13 @@ export function AppShell({
   title,
   eyebrow,
   actions,
+  contentClassName,
 }: {
   children: ReactNode;
   title: string;
   eyebrow?: string;
   actions?: ReactNode;
+  contentClassName?: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -281,7 +283,7 @@ export function AppShell({
             {actions}
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1500px] p-4 md:p-8">{children}</main>
+        <main className={cn("mx-auto w-full max-w-[1500px] p-4 md:p-8", contentClassName)}>{children}</main>
       </div>
       {/* Search dialog */}
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
