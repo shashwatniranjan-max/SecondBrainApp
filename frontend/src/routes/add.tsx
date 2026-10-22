@@ -77,7 +77,7 @@ function AddKnowledgePage() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageAnalysis, setImageAnalysis] = useState<ImageAnalysisData | null>(null);
   const [analyzingImage, setAnalyzingImage] = useState(false);
-  const [imageAnalysisStep, setImageAnalysisStep] = useState("Analyzing with Gemma 4...");
+  const [imageAnalysisStep, setImageAnalysisStep] = useState("Analyzing image...");
   const [imageError, setImageError] = useState("");
 
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
@@ -122,7 +122,7 @@ function AddKnowledgePage() {
     setImageAnalysisStep("Uploading image...");
 
     const step1 = setTimeout(() => {
-      setImageAnalysisStep("Analyzing visual elements with Gemma 4...");
+      setImageAnalysisStep("Analyzing visual elements...");
     }, 2500);
 
     const step2 = setTimeout(() => {
@@ -153,7 +153,7 @@ function AddKnowledgePage() {
         setTags(newTags);
       }
     } catch (err) {
-      setImageError((err as Error).message || "Failed to analyze image with Gemma 4.");
+      setImageError((err as Error).message || "Failed to analyze image. Please try again.");
     } finally {
       clearTimeout(step1);
       clearTimeout(step2);
@@ -327,7 +327,7 @@ function AddKnowledgePage() {
                 id="title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder={mode === "image" ? "Auto-generated from Gemma 4 analysis" : "Give this knowledge a clear title"}
+                placeholder={mode === "image" ? "Optional title (or auto-generated from image)" : "Give this knowledge a clear title"}
                 required={mode !== "image"}
               />
             </div>
@@ -497,7 +497,7 @@ function AddKnowledgePage() {
                             ) : (
                               <>
                                 <Sparkles className="size-4 text-warm-foreground" />
-                                Analyze with Gemma 4
+                                Analyze image
                               </>
                             )}
                           </Button>
@@ -545,9 +545,9 @@ function AddKnowledgePage() {
                             </span>
                             <span className="text-sm font-semibold">Extracted Knowledge Preview</span>
                           </div>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                            <Sparkles className="size-3" />
-                            {imageAnalysis.modelUsed || "Gemma 4"}
+                          <span className="inline-flex items-center gap-1 rounded-full bg-mint/20 text-mint-foreground dark:text-emerald-400 px-2.5 py-0.5 text-[11px] font-medium">
+                            <CheckCircle2 className="size-3" />
+                            Analysis complete
                           </span>
                         </div>
 

@@ -1,9 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { BrainQuery } from '../models/BrainQuery';
+import { Knowledge } from '../models/Knowledge';
 import { sendSuccess, sendError } from '../utils/response';
 import { ragService } from '../services/rag.service';
 import { geminiService } from '../services/gemini.service';
+import { r2Service } from '../services/r2Service';
 import { z } from 'zod';
 
 const askSchema = z.object({
@@ -16,6 +18,7 @@ const askSchema = z.object({
       })
     )
     .optional(),
+  imageId: z.string().optional(),
 });
 
 export const askBrain = async (req: Request, res: Response, next: NextFunction) => {
@@ -25,7 +28,96 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
       return sendError(res, 'Unauthorized', 401);
     }
 
-    const { question, conversationHistory } = askSchema.parse(req.body);
+    const { question, conversationHistory, imageId } = askSchema.parse(req.body);
+
+    // Multimodal Image Q&A branch
+    if (imageId) {
+      const imageDoc = await Knowledge.findOne({ _id: imageId, userId });
+      if (!imageDoc) {
+        return sendError(res, 'Attached image not found or unauthorized', 404);
+      }
+      if (imageDoc.type !== 'Image' || !imageDoc.source?.objectKey) {
+        return sendError(res, 'Selected knowledge item is not a valid image file', 400);
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = await r2Service.getFileBuffer(imageDoc.source.objectKey);
+      } catch (r2Err: any) {
+        console.error('Failed to load image buffer from R2:', r2Err.message);
+        return sendError(res, 'Could not retrieve attached image file from storage', 500);
+      }
+
+      const mimeType = imageDoc.source.mimeType || 'image/jpeg';
+      const extractedText = Array.isArray(imageDoc.content)
+        ? imageDoc.content.join('\n\n')
+        : String(imageDoc.content || '');
+
+      let answerText: string;
+      try {
+        answerText = await geminiService.answerImageQuestion(
+          buffer,
+          mimeType,
+          question,
+          imageDoc.title,
+          extractedText,
+          conversationHistory
+        );
+      } catch (modelError: any) {
+        console.error('Multimodal answer generation error:', modelError.message);
+        if (modelError.message?.includes('GEMINI_API_KEY')) {
+          answerText =
+            '⚠️ **GEMINI_API_KEY is not configured on your server.**\n\nPlease add `GEMINI_API_KEY` to the Environment Variables in your Render Dashboard settings.';
+        } else {
+          answerText = `Could not generate image answer: ${modelError.message}. Please try again later.`;
+        }
+      }
+
+      const sources = [
+        {
+          knowledgeId: imageDoc._id,
+          title: imageDoc.title,
+          excerpt:
+            imageDoc.description ||
+            `Attached image: ${imageDoc.source.originalName || imageDoc.title} (${
+              imageDoc.analysisStatus === 'completed' ? 'Analyzed' : 'Direct Vision Analysis'
+            })`,
+          relevance: 100,
+        },
+      ];
+
+      const suggestedQuestions = [
+        `Can you explain the main diagram or visual in ${imageDoc.title}?`,
+        `What text or formulas are visible in this image?`,
+        `How does this connect to my other notes?`,
+      ];
+
+      const brainQuery = await BrainQuery.create({
+        userId: new mongoose.Types.ObjectId(userId),
+        question,
+        answer: answerText,
+        sources,
+        relatedKnowledgeIds: [imageDoc._id],
+        suggestedQuestions,
+      });
+
+      const formattedAnswer = {
+        id: brainQuery._id.toString(),
+        question: brainQuery.question,
+        answer: brainQuery.answer,
+        sources: brainQuery.sources.map((s) => ({
+          knowledgeId: s.knowledgeId.toString(),
+          title: s.title,
+          excerpt: s.excerpt,
+          relevance: s.relevance,
+        })),
+        relatedKnowledgeIds: brainQuery.relatedKnowledgeIds.map((id) => id.toString()),
+        suggestedQuestions: brainQuery.suggestedQuestions,
+        createdAt: brainQuery.createdAt,
+      };
+
+      return sendSuccess(res, formattedAnswer);
+    }
 
     // 1. Check for casual greetings to skip unnecessary embedding and vector search overhead
     const isCasualGreeting =

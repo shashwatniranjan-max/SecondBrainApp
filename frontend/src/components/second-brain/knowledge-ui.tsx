@@ -67,7 +67,18 @@ export function KnowledgeCard({
   compact?: boolean;
 }) {
   const isUrl = item.type === "URL";
+  const isImage = item.type === "Image";
   const parsedUrl = isUrl ? parseUrl(item.sourceUrl || item.content[0] || "") : null;
+
+  const displayDescription = item.description || (
+    isImage
+      ? item.analysisStatus === "pending"
+        ? "Analysis pending — click to view and analyze."
+        : item.analysisStatus === "failed"
+          ? "Analysis failed — click to retry."
+          : "Saved image knowledge."
+      : "Saved knowledge ready to explore."
+  );
 
   return (
     <Link
@@ -94,7 +105,7 @@ export function KnowledgeCard({
                   compact ? "line-clamp-1" : "line-clamp-2",
                 )}
               >
-                {item.description}
+                {displayDescription}
               </p>
             </div>
             {!isUrl && <MoreHorizontal className="size-4 shrink-0 text-muted-foreground/60" />}
@@ -105,7 +116,22 @@ export function KnowledgeCard({
                 {parsedUrl.platform}
               </span>
             )}
-            {item.tags.slice(0, isUrl ? 1 : 2).map((tag) => (
+            {isImage && item.analysisStatus === "pending" && (
+              <span className="inline-flex h-6 items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                Analysis pending
+              </span>
+            )}
+            {isImage && item.analysisStatus === "failed" && (
+              <span className="inline-flex h-6 items-center rounded-full border border-destructive/30 bg-destructive/10 px-2.5 text-[11px] font-semibold text-destructive">
+                Analysis failed
+              </span>
+            )}
+            {isImage && item.analysisStatus === "completed" && (
+              <span className="inline-flex h-6 items-center rounded-full border border-mint/40 bg-mint/20 px-2.5 text-[11px] font-semibold text-mint-foreground dark:text-emerald-400">
+                Analyzed
+              </span>
+            )}
+            {item.tags.slice(0, isUrl || isImage ? 1 : 2).map((tag) => (
               <Tag key={tag}>{tag}</Tag>
             ))}
             <span className="ml-auto text-xs text-muted-foreground">{item.dateAdded}</span>

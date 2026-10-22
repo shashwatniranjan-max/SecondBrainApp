@@ -8,6 +8,7 @@ import {
   deleteKnowledge,
   serveUploadedFile,
   analyzeImage,
+  analyzeSavedKnowledge,
 } from '../controllers/knowledgeController';
 import { requireAuth } from '../middleware/auth';
 
@@ -41,6 +42,7 @@ router.get('/search', searchKnowledge); // Make sure this is above /:id
 router.get('/file/:id', serveUploadedFile);
 router.get('/:id', getKnowledgeById);
 router.post('/analyze-image', upload.single('file'), analyzeImage);
+router.post('/:id/analyze', analyzeSavedKnowledge);
 router.post('/', upload.single('file'), addKnowledge);
 router.delete('/:id', deleteKnowledge);
 

@@ -20,6 +20,7 @@ export interface IKnowledge extends Document {
   content: string[];
   keyIdeas: string[];
   accent?: 'blue' | 'lavender' | 'mint';
+  analysisStatus?: 'pending' | 'completed' | 'failed';
   embeddingStatus?: 'pending' | 'completed' | 'failed';
   chunkCount?: number;
   createdAt: Date;
@@ -57,6 +58,11 @@ const knowledgeSchema = new Schema<IKnowledge>(
     accent: {
       type: String,
       enum: ['blue', 'lavender', 'mint'],
+    },
+    analysisStatus: {
+      type: String,
+      enum: ['pending', 'completed', 'failed'],
+      default: undefined,
     },
     embeddingStatus: {
       type: String,

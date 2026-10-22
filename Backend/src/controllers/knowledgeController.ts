@@ -12,28 +12,32 @@ import {
   MAX_PDF_FILE_SIZE,
 } from '../utils/fileValidation';
 
+const formatKnowledgeDoc = (k: any) => ({
+  id: k._id.toString(),
+  title: k.title,
+  description: k.description,
+  type: k.type,
+  tags: k.tags,
+  dateAdded: k.dateAdded.toDateString(),
+  source: k.source?.url || k.source?.originalName || k.source?.kind,
+  sourceUrl: k.source?.objectKey ? `/api/knowledge/file/${k._id}` : k.source?.url,
+  readingTime: k.readingTime,
+  progress: k.progress,
+  content: k.content,
+  keyIdeas: k.keyIdeas,
+  accent: k.accent,
+  analysisStatus: k.analysisStatus,
+  embeddingStatus: k.embeddingStatus,
+  chunkCount: k.chunkCount,
+});
+
 // GET /api/knowledge
 export const getKnowledge = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
     const knowledge = await Knowledge.find({ userId }).sort({ createdAt: -1 });
     
-    // Map to match frontend format if necessary, though Mongoose returns JSON well
-    const formatted = knowledge.map(k => ({
-      id: k._id.toString(),
-      title: k.title,
-      description: k.description,
-      type: k.type,
-      tags: k.tags,
-      dateAdded: k.dateAdded.toDateString(),
-      source: k.source.url || k.source.originalName || k.source.kind,
-      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
-      readingTime: k.readingTime,
-      progress: k.progress,
-      content: k.content,
-      keyIdeas: k.keyIdeas,
-      accent: k.accent,
-    }));
+    const formatted = knowledge.map(formatKnowledgeDoc);
 
     return sendSuccess(res, formatted);
   } catch (error) {
@@ -72,21 +76,7 @@ export const searchKnowledge = async (req: Request, res: Response, next: NextFun
     }).sort({ createdAt: -1 });
     */
 
-    const formatted = knowledge.map(k => ({
-      id: k._id.toString(),
-      title: k.title,
-      description: k.description,
-      type: k.type,
-      tags: k.tags,
-      dateAdded: k.dateAdded.toDateString(),
-      source: k.source.url || k.source.originalName || k.source.kind,
-      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
-      readingTime: k.readingTime,
-      progress: k.progress,
-      content: k.content,
-      keyIdeas: k.keyIdeas,
-      accent: k.accent,
-    }));
+    const formatted = knowledge.map(formatKnowledgeDoc);
 
     return sendSuccess(res, formatted);
   } catch (error) {
@@ -105,21 +95,7 @@ export const getKnowledgeById = async (req: Request, res: Response, next: NextFu
       return sendError(res, 'Knowledge not found', 404);
     }
 
-    const formatted = {
-      id: k._id.toString(),
-      title: k.title,
-      description: k.description,
-      type: k.type,
-      tags: k.tags,
-      dateAdded: k.dateAdded.toDateString(),
-      source: k.source.url || k.source.originalName || k.source.kind,
-      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
-      readingTime: k.readingTime,
-      progress: k.progress,
-      content: k.content,
-      keyIdeas: k.keyIdeas,
-      accent: k.accent,
-    };
+    const formatted = formatKnowledgeDoc(k);
 
     return sendSuccess(res, formatted);
   } catch (error) {
@@ -210,6 +186,8 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
     let finalKeyIdeas: string[] = ['Ready for review', 'Available in your knowledge library'];
     let finalTags = [...validatedData.tags];
 
+    let analysisStatus: 'pending' | 'completed' | 'failed' | undefined = undefined;
+
     if (validatedData.mode === 'image') {
       if (req.file) {
         if (req.file.size > MAX_IMAGE_FILE_SIZE) {
@@ -237,7 +215,7 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
           console.warn('R2 image upload warning:', r2Err.message);
         }
 
-        // Check if pre-analyzed metadata was passed
+        // Check if pre-analyzed metadata was passed from Add Knowledge UI preview
         let analysis: ImageAnalysisResult | null = null;
         if (req.body.imageMetadata) {
           try {
@@ -248,24 +226,32 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
           } catch (e) {}
         }
 
-        if (!analysis) {
-          analysis = await geminiService.analyzeImage(req.file.buffer, detected.mimeType);
-        }
-
-        const formattedMarkdown = geminiService.formatImageAnalysisAsMarkdown(analysis);
-        finalContent = formattedMarkdown;
-        if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
-          finalKeyIdeas = analysis.keyConcepts;
-          finalTags = [...new Set([...finalTags, ...analysis.keyConcepts.slice(0, 4)])];
-        }
-        if (!finalTitle) {
-          finalTitle = analysis.summary.slice(0, 50).replace(/\.[^.]*$/, '') || originalName;
-        }
-        if (!finalDescription) {
-          finalDescription = analysis.summary;
+        if (analysis) {
+          // Pre-analysis was explicitly performed before saving
+          analysisStatus = 'completed';
+          const formattedMarkdown = geminiService.formatImageAnalysisAsMarkdown(analysis);
+          finalContent = formattedMarkdown;
+          if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
+            finalKeyIdeas = analysis.keyConcepts;
+            finalTags = [...new Set([...finalTags, ...analysis.keyConcepts.slice(0, 4)])];
+          }
+          if (!finalTitle) {
+            finalTitle = analysis.summary.slice(0, 50).replace(/\.[^.]*$/, '') || originalName;
+          }
+          if (!finalDescription) {
+            finalDescription = analysis.summary;
+          }
+        } else {
+          // Saving image without analysis (fast path: no AI model call, no fabricated descriptions)
+          analysisStatus = 'pending';
+          finalContent = finalContent || '';
+          finalKeyIdeas = [];
+          if (!finalTitle) {
+            finalTitle = originalName ? originalName.replace(/\.[^/.]+$/, '') : 'Uploaded Image';
+          }
         }
       } else if (!finalContent) {
-        return sendError(res, 'Image file or extracted content is required for image mode', 400);
+        return sendError(res, 'Image file is required for image mode', 400);
       }
     } else if (validatedData.mode === 'upload' && req.file) {
       if (req.file.size > MAX_PDF_FILE_SIZE) {
@@ -303,7 +289,7 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
     const k = await Knowledge.create({
       userId,
       title: finalTitle,
-      description: finalDescription || 'New knowledge ready to explore.',
+      description: finalDescription || (validatedData.mode === 'image' ? '' : 'New knowledge ready to explore.'),
       type: (typeMapping[validatedData.mode] || 'Note') as any,
       tags: finalTags,
       source: {
@@ -314,37 +300,87 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
         mimeType: mimeType,
         size: size,
       },
-      content: [finalContent || 'Your new knowledge has been processed.'],
+      content: finalContent
+        ? [finalContent]
+        : validatedData.mode === 'image'
+          ? []
+          : ['Your new knowledge has been processed.'],
       keyIdeas: finalKeyIdeas,
       readingTime: Math.ceil((finalContent?.length || 1000) / 1000),
       accent: (['blue', 'lavender', 'mint'][Math.floor(Math.random() * 3)]) as any,
+      analysisStatus,
       embeddingStatus: 'pending',
     });
 
-    // Trigger non-blocking asynchronous RAG chunking and vector indexing
-    setImmediate(() => {
-      ragService.indexKnowledge(k._id).catch((err: any) => {
-        console.error(`Background indexing error for ${k._id}:`, err.message);
+    // Only trigger indexing if textual content is available (not for unanalyzed images)
+    if (k.type !== 'Image' || k.analysisStatus === 'completed') {
+      setImmediate(() => {
+        ragService.indexKnowledge(k._id).catch((err: any) => {
+          console.error(`Background indexing error for ${k._id}:`, err.message);
+        });
       });
-    });
+    }
 
-    const formatted = {
-      id: k._id.toString(),
-      title: k.title,
-      description: k.description,
-      type: k.type,
-      tags: k.tags,
-      dateAdded: k.dateAdded.toDateString(),
-      source: k.source.url || k.source.originalName || k.source.kind,
-      sourceUrl: k.source.objectKey ? `/api/knowledge/file/${k._id}` : k.source.url,
-      readingTime: k.readingTime,
-      progress: k.progress,
-      content: k.content,
-      keyIdeas: k.keyIdeas,
-      accent: k.accent,
-    };
-
+    const formatted = formatKnowledgeDoc(k);
     return sendSuccess(res, formatted, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/knowledge/:id/analyze
+export const analyzeSavedKnowledge = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    const { id } = req.params;
+    const k = await Knowledge.findOne({ _id: id, userId });
+    if (!k) {
+      return sendError(res, 'Knowledge item not found', 404);
+    }
+
+    if (k.type !== 'Image' || !k.source?.objectKey) {
+      return sendError(res, 'Target item is not an image stored in R2', 400);
+    }
+
+    try {
+      console.log(`[Image Analysis] Analyzing saved image ${id} from R2 key ${k.source.objectKey}...`);
+      const buffer = await r2Service.getFileBuffer(k.source.objectKey);
+      const mimeType = k.source.mimeType || 'image/jpeg';
+
+      const analysis = await geminiService.analyzeImage(buffer, mimeType);
+      const formattedMarkdown = geminiService.formatImageAnalysisAsMarkdown(analysis);
+
+      k.content = [formattedMarkdown];
+      if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
+        k.keyIdeas = analysis.keyConcepts;
+        k.tags = [...new Set([...(k.tags || []), ...analysis.keyConcepts.slice(0, 4)])];
+      }
+      if (!k.description || k.description.trim() === '') {
+        k.description = analysis.summary;
+      }
+      k.readingTime = Math.ceil(formattedMarkdown.length / 1000);
+      k.analysisStatus = 'completed';
+      await k.save();
+
+      // Trigger RAG indexing now that structured text has been extracted
+      await ragService.indexKnowledge(k._id);
+
+      const formatted = formatKnowledgeDoc(k);
+      return sendSuccess(res, formatted);
+    } catch (analysisErr: any) {
+      console.error(`[Image Analysis] Failed for ${id}:`, analysisErr.message);
+      k.analysisStatus = 'failed';
+      await k.save();
+      return sendError(
+        res,
+        `Image analysis failed: ${analysisErr.message || 'Please retry later.'}`,
+        500
+      );
+    }
   } catch (error) {
     next(error);
   }

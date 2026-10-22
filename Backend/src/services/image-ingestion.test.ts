@@ -242,3 +242,43 @@ test('Regression - Text, PDF, URL, and YouTube ingestion workflows remain intact
   };
   assert.strictEqual(addKnowledgeSchema.parse(youtubeInput).mode, 'youtube');
 });
+
+// --- Test Suite 6: Decoupled Image Ingestion & Analysis Lifecycle ---
+test('Decoupled Workflow - unanalysed images return empty text and keep pending embedding status', async () => {
+  const rag = new RAGService();
+
+  // 1. Mock unanalyzed image document
+  const unanalyzedImageDoc: any = {
+    type: 'Image',
+    title: 'Whiteboard Architecture',
+    analysisStatus: 'pending',
+    embeddingStatus: 'pending',
+    content: ['Your new knowledge has been processed.'],
+    source: {
+      kind: 'image',
+      originalName: 'whiteboard.jpg',
+      objectKey: 'users/123/knowledge/abc.jpg',
+    },
+  };
+
+  // extractFullText must NOT analyze or return placeholder text for unanalyzed images
+  const text = await rag.extractFullText(unanalyzedImageDoc);
+  assert.strictEqual(text, '', 'Unanalyzed image must return empty string for full text');
+
+  // 2. Mock completed image document
+  const analyzedImageDoc: any = {
+    type: 'Image',
+    title: 'System Architecture',
+    analysisStatus: 'completed',
+    embeddingStatus: 'completed',
+    content: ['## Summary\nClean microservices architecture with API Gateway.'],
+  };
+
+  const analyzedText = await rag.extractFullText(analyzedImageDoc);
+  assert.ok(analyzedText.includes('Clean microservices architecture'));
+});
+
+test('Multimodal Q&A - GeminiService contains answerImageQuestion method', () => {
+  assert.strictEqual(typeof (geminiService as any).answerImageQuestion, 'function');
+});
+

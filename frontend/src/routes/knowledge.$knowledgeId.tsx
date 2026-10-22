@@ -7,9 +7,11 @@ import {
   Clock3,
   ExternalLink,
   Image as ImageIcon,
+  Loader2,
   Maximize,
   Minimize,
   Settings2,
+  Sparkles,
   Check,
 } from "lucide-react";
 import { AppShell } from "@/components/second-brain/app-shell";
@@ -231,6 +233,23 @@ function KnowledgeDetailPage() {
   const relatedQuery = useServiceQuery(() => knowledgeService.getKnowledge(), []);
   const prefs = useFocusPreferences();
 
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const handleAnalyzeImage = async () => {
+    if (!itemQuery.data) return;
+    setAnalyzingImage(true);
+    setAnalysisError(null);
+    try {
+      await knowledgeService.analyzeSavedImage(itemQuery.data.id);
+      itemQuery.retry();
+    } catch (err: any) {
+      setAnalysisError(err.message || "Failed to analyze image. Please try again.");
+    } finally {
+      setAnalyzingImage(false);
+    }
+  };
+
   if (focusMode && itemQuery.data) {
     if (itemQuery.data.type === "PDF" && itemQuery.data.sourceUrl) {
       return (
@@ -451,6 +470,21 @@ function KnowledgeDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <Tag>{itemQuery.data.type}</Tag>
+                      {itemQuery.data.type === "Image" && itemQuery.data.analysisStatus === "pending" && (
+                        <span className="inline-flex h-6 items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                          Analysis pending
+                        </span>
+                      )}
+                      {itemQuery.data.type === "Image" && itemQuery.data.analysisStatus === "failed" && (
+                        <span className="inline-flex h-6 items-center rounded-full border border-destructive/30 bg-destructive/10 px-2.5 text-[11px] font-semibold text-destructive">
+                          Analysis failed
+                        </span>
+                      )}
+                      {itemQuery.data.type === "Image" && itemQuery.data.analysisStatus === "completed" && (
+                        <span className="inline-flex h-6 items-center rounded-full border border-mint/40 bg-mint/20 px-2.5 text-[11px] font-semibold text-mint-foreground dark:text-emerald-400">
+                          Analyzed
+                        </span>
+                      )}
                       {itemQuery.data.tags.map((tag) => (
                         <Tag key={tag}>{tag}</Tag>
                       ))}
@@ -467,7 +501,13 @@ function KnowledgeDetailPage() {
                       {itemQuery.data.title}
                     </h2>
                     <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                      {itemQuery.data.description}
+                      {itemQuery.data.description || (
+                        itemQuery.data.type === "Image"
+                          ? itemQuery.data.analysisStatus === "pending"
+                            ? "Image saved without analysis. Click 'Analyze image' to extract content."
+                            : "Saved image knowledge."
+                          : ""
+                      )}
                     </p>
                   </div>
                 </div>
@@ -481,7 +521,47 @@ function KnowledgeDetailPage() {
                       title={itemQuery.data.title}
                     />
                   )}
-                  {itemQuery.data.type === "URL" ? (
+                  {itemQuery.data.type === "Image" && itemQuery.data.analysisStatus !== "completed" ? (
+                    <div className="rounded-lg border border-dashed bg-card/60 p-6 text-center space-y-3">
+                      <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-primary">
+                        <Sparkles className="size-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-semibold text-base">Image saved without AI analysis</h4>
+                        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                          Analyze this image to transcribe text, understand diagrams, and enable full semantic search across your library.
+                        </p>
+                      </div>
+                      {analysisError && (
+                        <p className="text-xs text-destructive font-medium">{analysisError}</p>
+                      )}
+                      <div className="pt-2 flex flex-wrap justify-center gap-3">
+                        <Button
+                          onClick={handleAnalyzeImage}
+                          disabled={analyzingImage}
+                          className="gap-2"
+                        >
+                          {analyzingImage ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Analyzing image...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="size-4 text-warm-foreground" />
+                              {itemQuery.data.analysisStatus === "failed" ? "Retry analysis" : "Analyze image"}
+                            </>
+                          )}
+                        </Button>
+                        <Button asChild variant="outline">
+                          <Link to="/ask" search={{ imageId: itemQuery.data.id }}>
+                            <BrainCircuit className="size-4 mr-1.5" />
+                            Ask question about image
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : itemQuery.data.type === "URL" ? (
                     <div className="my-6">
                       <UrlEmbed
                         url={itemQuery.data.sourceUrl || itemQuery.data.content[0]}
@@ -512,8 +592,39 @@ function KnowledgeDetailPage() {
               </div>
             </div>
             <aside className="space-y-5">
-              <Button asChild className="h-11 w-full">
-                <Link to="/ask">
+              {itemQuery.data.type === "Image" && itemQuery.data.analysisStatus !== "completed" && (
+                <Button
+                  className="h-11 w-full gap-2"
+                  variant={itemQuery.data.analysisStatus === "failed" ? "destructive" : "default"}
+                  onClick={handleAnalyzeImage}
+                  disabled={analyzingImage}
+                >
+                  {analyzingImage ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Analyzing image...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="size-4 text-warm-foreground" />
+                      {itemQuery.data.analysisStatus === "failed" ? "Retry analysis" : "Analyze image"}
+                    </>
+                  )}
+                </Button>
+              )}
+              <Button
+                asChild
+                className="h-11 w-full"
+                variant={itemQuery.data.type === "Image" && itemQuery.data.analysisStatus !== "completed" ? "outline" : "default"}
+              >
+                <Link
+                  to="/ask"
+                  search={
+                    itemQuery.data.type === "Image"
+                      ? { imageId: itemQuery.data.id }
+                      : { q: `Tell me about ${itemQuery.data.title}` }
+                  }
+                >
                   <BrainCircuit />
                   Ask about this
                 </Link>
@@ -546,14 +657,22 @@ function KnowledgeDetailPage() {
               </div>
               <div className="rounded-lg border bg-card p-5 shadow-card">
                 <h3 className="mb-4 text-sm font-bold">Key ideas</h3>
-                <div className="space-y-3">
-                  {itemQuery.data.keyIdeas.map((idea) => (
-                    <div key={idea} className="flex gap-2 text-sm">
-                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-mint-foreground" />
-                      <span>{idea}</span>
-                    </div>
-                  ))}
-                </div>
+                {itemQuery.data.keyIdeas && itemQuery.data.keyIdeas.length > 0 ? (
+                  <div className="space-y-3">
+                    {itemQuery.data.keyIdeas.map((idea) => (
+                      <div key={idea} className="flex gap-2 text-sm">
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-mint-foreground" />
+                        <span>{idea}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    {itemQuery.data.type === "Image" && itemQuery.data.analysisStatus !== "completed"
+                      ? "Key ideas will appear here once image analysis is completed."
+                      : "No key ideas extracted yet."}
+                  </p>
+                )}
               </div>
               {itemQuery.data.type === "Image" && itemQuery.data.sourceUrl && (
                 <Button

@@ -14,6 +14,9 @@ export interface KnowledgeItem {
   content: string[];
   keyIdeas: string[];
   accent: "blue" | "lavender" | "mint";
+  analysisStatus?: "pending" | "completed" | "failed";
+  embeddingStatus?: "pending" | "completed" | "failed";
+  chunkCount?: number;
 }
 
 export interface ImageAnalysisData {
@@ -60,11 +63,16 @@ export interface KnowledgeService {
   searchKnowledge(query: string): Promise<KnowledgeItem[]>;
   addKnowledge(data: AddKnowledgeInput): Promise<KnowledgeItem>;
   deleteKnowledge(id: string): Promise<void>;
-  askBrain(question: string): Promise<BrainAnswer>;
+  askBrain(
+    question: string,
+    conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>,
+    imageId?: string
+  ): Promise<BrainAnswer>;
   getAskHistory(): Promise<BrainAnswer[]>;
   deleteAskQuery(id: string): Promise<void>;
   getYouTubeTranscript(
     url: string,
   ): Promise<{ title: string; originalUrl: string; transcript: string[] }>;
   analyzeImage(file: File): Promise<ImageAnalysisData>;
+  analyzeSavedImage(id: string): Promise<KnowledgeItem>;
 }

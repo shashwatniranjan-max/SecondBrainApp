@@ -112,27 +112,10 @@ export class RAGService {
       }
     }
 
-    // Check if it's an Image that needs re-analysis from R2
+    // For Image knowledge: only use textual content if analysis has completed
     if (knowledge.type === 'Image') {
-      const isPlaceholder =
-        joinedContent.trim() === 'Your new knowledge has been processed.' ||
-        joinedContent.trim() === (knowledge.source?.originalName || '');
-
-      if ((isPlaceholder || joinedContent.length < 50) && knowledge.source?.objectKey) {
-        try {
-          const buffer = await r2Service.getFileBuffer(knowledge.source.objectKey);
-          const mimeType = knowledge.source.mimeType || 'image/jpeg';
-          const analysis = await geminiService.analyzeImage(buffer, mimeType);
-          const formatted = geminiService.formatImageAnalysisAsMarkdown(analysis);
-          knowledge.content = [formatted];
-          if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
-            knowledge.keyIdeas = analysis.keyConcepts;
-          }
-          await knowledge.save();
-          return formatted;
-        } catch (err: any) {
-          console.warn(`Could not re-analyze image from R2 for ${knowledge._id}:`, err.message);
-        }
+      if (knowledge.analysisStatus !== 'completed') {
+        return '';
       }
       return joinedContent;
     }
@@ -151,6 +134,14 @@ export class RAGService {
     const knowledge = await Knowledge.findById(knowledgeId);
     if (!knowledge) {
       throw new Error(`Knowledge document ${knowledgeId} not found`);
+    }
+
+    // Unanalysed images should not be embedded and stay pending with 0 chunks
+    if (knowledge.type === 'Image' && knowledge.analysisStatus !== 'completed') {
+      knowledge.embeddingStatus = 'pending';
+      knowledge.chunkCount = 0;
+      await knowledge.save();
+      return 0;
     }
 
     try {

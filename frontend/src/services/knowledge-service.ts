@@ -73,12 +73,13 @@ export const knowledgeService: KnowledgeService = {
   },
   async askBrain(
     question: string,
-    conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>
+    conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>,
+    imageId?: string
   ) {
     const res = await fetch(`${API_BASE}/api/ask`, {
       method: "POST",
       headers: getHeaders(),
-      body: JSON.stringify({ question, conversationHistory }),
+      body: JSON.stringify({ question, conversationHistory, imageId }),
     });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
@@ -123,6 +124,18 @@ export const knowledgeService: KnowledgeService = {
       method: "POST",
       headers: getHeaders(true),
       body: formData,
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.message || json.error || "Failed to analyze image");
+    }
+    const json = await res.json();
+    return json.data;
+  },
+  async analyzeSavedImage(id: string) {
+    const res = await fetch(`${API_URL}/${id}/analyze`, {
+      method: "POST",
+      headers: getHeaders(),
     });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));

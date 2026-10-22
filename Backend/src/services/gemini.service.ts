@@ -333,6 +333,96 @@ You MUST respond with valid JSON matching this exact structure:
 
     return sections.join('\n\n');
   }
+
+  /**
+   * Multimodal vision Q&A for a saved image with Gemma 4 primary model and resilient Gemini Flash fallback
+   */
+  async answerImageQuestion(
+    buffer: Buffer,
+    mimeType: string,
+    question: string,
+    imageTitle: string,
+    extractedText?: string,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<string> {
+    const ai = this.getClient();
+
+    const base64Data = buffer.toString('base64');
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: base64Data,
+      },
+    };
+
+    let historyContext = '';
+    if (conversationHistory && conversationHistory.length > 0) {
+      historyContext =
+        `\n\nRecent conversation history:\n` +
+        conversationHistory
+          .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n');
+    }
+
+    let priorAnalysisContext = '';
+    if (extractedText && extractedText.trim() && !extractedText.includes('Image pending AI analysis')) {
+      priorAnalysisContext = `\n\nPreviously extracted text/analysis for this image:\n${extractedText.slice(0, 3000)}`;
+    }
+
+    const promptText = `You are a helpful assistant for the user's personal knowledge base in the Second Brain application.
+The user is asking a question about the attached image titled "${imageTitle}".
+
+INSTRUCTIONS:
+1. Examine the image carefully. Answer the user's question directly based on what is visible in the image (text, handwriting, diagrams, charts, labels, code, workflows, connections).
+2. Clearly distinguish direct visual observations from inferences, interpretations, or uncertainty.
+3. If parts of the image are blurry, illegible, cropped, or ambiguous, state that clearly instead of guessing or hallucinating.
+4. If previously extracted text is provided below, you may use it to confirm difficult-to-read terms, but rely primarily on the visual image.
+5. Provide a clear, well-structured response using Markdown formatting where helpful.${priorAnalysisContext}${historyContext}
+
+User Question: ${question}`;
+
+    const textPart = { text: promptText };
+
+    // Primary: Gemma 4 -> Fallback: Gemini Flash -> Gemini 2.5 Flash
+    const modelChain = [
+      this.generationModel,
+      this.fallbackModel,
+      'gemini-2.5-flash',
+    ].filter((m, i, arr) => arr.indexOf(m) === i);
+
+    let lastError: any = null;
+
+    for (const model of modelChain) {
+      try {
+        console.log(`[Image Q&A] Attempting multimodal answer with model: ${model}...`);
+        const timeoutMs = model.startsWith('gemma') ? this.imageTimeoutMs : 25000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Model ${model} timed out after ${timeoutMs}ms`)), timeoutMs)
+        );
+
+        const response = await Promise.race([
+          ai.models.generateContent({
+            model,
+            contents: [imagePart, textPart],
+            config: {
+              temperature: 0.2,
+            },
+          }),
+          timeoutPromise,
+        ]);
+
+        if (response && response.text) {
+          console.log(`[Image Q&A] Successfully answered with model: ${model}`);
+          return response.text;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Image Q&A] Model ${model} failed (${err.status || err.message}). Trying fallback...`);
+      }
+    }
+
+    throw lastError || new Error('All image Q&A models in fallback chain failed');
+  }
 }
 
 export interface ImageAnalysisResult {

@@ -15,6 +15,7 @@ import {
   Copy,
   Check,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { AppShell } from "@/components/second-brain/app-shell";
@@ -22,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { knowledgeService } from "@/services/knowledge-service";
 import { DocumentRenderer } from "@/components/second-brain/document-renderer";
-import type { BrainAnswer } from "@/types/knowledge";
+import type { BrainAnswer, KnowledgeItem } from "@/types/knowledge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/ask")({
@@ -42,9 +43,10 @@ export const Route = createFileRoute("/ask")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { q?: string } => {
+  validateSearch: (search: Record<string, unknown>): { q?: string; imageId?: string } => {
     return {
       q: typeof search["q"] === "string" ? search["q"] : undefined,
+      imageId: typeof search["imageId"] === "string" ? search["imageId"] : undefined,
     };
   },
   component: AskPage,
@@ -70,6 +72,10 @@ function AskPage() {
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(searchParams.imageId || null);
+  const [selectedImageItem, setSelectedImageItem] = useState<KnowledgeItem | null>(null);
+  const [savedImages, setSavedImages] = useState<KnowledgeItem[]>([]);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -98,6 +104,33 @@ function AskPage() {
     loadHistory();
   }, []);
 
+  // Fetch image metadata when imageId is present
+  useEffect(() => {
+    if (selectedImageId) {
+      knowledgeService
+        .getKnowledgeById(selectedImageId)
+        .then((item) => {
+          if (item && item.type === "Image") {
+            setSelectedImageItem(item);
+          }
+        })
+        .catch((err) => console.warn("Failed to load attached image:", err));
+    } else {
+      setSelectedImageItem(null);
+    }
+  }, [selectedImageId]);
+
+  // Load saved images list for the image attachment picker
+  useEffect(() => {
+    knowledgeService
+      .getKnowledge()
+      .then((items) => {
+        const images = items.filter((item) => item.type === "Image");
+        setSavedImages(images);
+      })
+      .catch(() => {});
+  }, []);
+
   // Handle auto-submit if ?q= was provided in URL
   useEffect(() => {
     if (searchParams.q && messages.length === 0 && !loading) {
@@ -120,7 +153,11 @@ function AskPage() {
         { role: "user" as const, content: m.question },
         { role: "assistant" as const, content: m.answer },
       ]);
-      const response = await knowledgeService.askBrain(q, conversationHistory);
+      const response = await knowledgeService.askBrain(
+        q,
+        conversationHistory,
+        selectedImageId || undefined
+      );
       // Append to the active conversation so earlier messages STAY VISIBLE
       setMessages((prev) => [...prev, response]);
       // Also update history list
@@ -185,7 +222,7 @@ function AskPage() {
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold text-zinc-100 truncate">Second Brain</h2>
                   <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 shrink-0">
-                    Gemma 4 RAG
+                    Knowledge AI
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-400 hidden sm:block truncate">
@@ -286,9 +323,6 @@ function AskPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-zinc-200">Second Brain</span>
-                        <span className="text-[10px] text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700/50">
-                          Gemma 4
-                        </span>
                       </div>
                       {msg.sources && msg.sources.length > 0 ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-medium">
@@ -445,37 +479,145 @@ function AskPage() {
           {/* Bottom Floating Input Bar (ChatGPT Style) */}
           <div className="p-3 sm:p-4 bg-[#212121] border-t border-zinc-800/80 shrink-0">
             <div className="max-w-3xl mx-auto">
-              <div className="relative flex items-center rounded-3xl border border-zinc-700/60 bg-[#2f2f2f] shadow-xl focus-within:border-zinc-500 transition-colors px-3 sm:px-4 py-1.5 sm:py-2">
-                <Textarea
-                  ref={inputRef}
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Message Second Brain..."
-                  rows={1}
-                  className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent text-white placeholder-zinc-400 py-2 pr-11 text-sm md:text-[15px] focus-visible:ring-0 shadow-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAsk()}
-                  disabled={loading || !question.trim()}
-                  className={cn(
-                    "absolute right-2.5 top-1/2 -translate-y-1/2 size-7 sm:size-8 rounded-full flex items-center justify-center transition-all",
-                    question.trim() && !loading
-                      ? "bg-white text-black hover:bg-zinc-200 cursor-pointer shadow-md"
-                      : "bg-zinc-700/60 text-zinc-500 cursor-not-allowed"
-                  )}
-                  title="Send message"
-                >
-                  {loading ? (
-                    <Loader2 className="size-3.5 sm:size-4 animate-spin text-zinc-400" />
-                  ) : (
-                    <ArrowUp className="size-3.5 sm:size-4 stroke-[2.5]" />
-                  )}
-                </button>
+              {/* Attached Image Context Chip */}
+              {selectedImageItem && (
+                <div className="mb-2 flex items-center justify-between rounded-xl border border-zinc-700/80 bg-zinc-800/95 px-3 py-1.5 text-xs text-zinc-200">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="grid size-6 place-items-center rounded-lg bg-primary/20 text-primary shrink-0">
+                      <ImageIcon className="size-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{selectedImageItem.title}</p>
+                      <p className="text-[10px] text-zinc-400">
+                        {selectedImageItem.analysisStatus === "completed"
+                          ? "Analyzed image context"
+                          : "Direct vision context (unanalyzed image)"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedImageId(null);
+                      setSelectedImageItem(null);
+                    }}
+                    className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors ml-2"
+                    title="Remove attached image"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="relative">
+                {/* Image Picker Dropdown */}
+                {showImagePicker && (
+                  <div className="absolute bottom-full mb-2 left-0 w-72 rounded-xl border border-zinc-700 bg-[#252525] p-2.5 shadow-2xl z-50 text-xs text-zinc-200">
+                    <div className="flex items-center justify-between pb-2 border-b border-zinc-700/60 mb-1.5">
+                      <span className="font-semibold text-zinc-100 flex items-center gap-1.5">
+                        <ImageIcon className="size-3.5 text-primary" />
+                        Attach saved image
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowImagePicker(false)}
+                        className="text-zinc-400 hover:text-white"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                    {savedImages.length === 0 ? (
+                      <div className="p-3 text-center text-zinc-400">
+                        <p>No images saved in your library yet.</p>
+                        <Link
+                          to="/add"
+                          className="text-primary hover:underline mt-1 inline-block text-[11px]"
+                        >
+                          Add an image first
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="max-h-52 overflow-y-auto space-y-1">
+                        {savedImages.map((img) => (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedImageId(img.id);
+                              setSelectedImageItem(img);
+                              setShowImagePicker(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-2 p-2 rounded-lg text-left transition-colors",
+                              selectedImageId === img.id
+                                ? "bg-primary/20 text-primary font-medium"
+                                : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                            )}
+                          >
+                            <ImageIcon className="size-4 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium">{img.title}</p>
+                              <span className="text-[10px] text-zinc-400">
+                                {img.analysisStatus === "completed" ? "Analyzed" : "Analysis pending"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="relative flex items-center rounded-3xl border border-zinc-700/60 bg-[#2f2f2f] shadow-xl focus-within:border-zinc-500 transition-colors pl-2.5 sm:pl-3 pr-3 sm:pr-4 py-1.5 sm:py-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowImagePicker((prev) => !prev)}
+                    className={cn(
+                      "size-7 sm:size-8 rounded-full flex items-center justify-center transition-colors mr-1 shrink-0",
+                      selectedImageId
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                    )}
+                    title={selectedImageId ? "Change attached image" : "Attach saved image from library"}
+                  >
+                    <ImageIcon className="size-4" />
+                  </button>
+
+                  <Textarea
+                    ref={inputRef}
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      selectedImageItem
+                        ? `Ask a question about "${selectedImageItem.title}"...`
+                        : "Message Second Brain..."
+                    }
+                    rows={1}
+                    className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent text-white placeholder-zinc-400 py-2 pr-11 text-sm md:text-[15px] focus-visible:ring-0 shadow-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAsk()}
+                    disabled={loading || !question.trim()}
+                    className={cn(
+                      "absolute right-2.5 top-1/2 -translate-y-1/2 size-7 sm:size-8 rounded-full flex items-center justify-center transition-all",
+                      question.trim() && !loading
+                        ? "bg-white text-black hover:bg-zinc-200 cursor-pointer shadow-md"
+                        : "bg-zinc-700/60 text-zinc-500 cursor-not-allowed"
+                    )}
+                    title="Send message"
+                  >
+                    {loading ? (
+                      <Loader2 className="size-3.5 sm:size-4 animate-spin text-zinc-400" />
+                    ) : (
+                      <ArrowUp className="size-3.5 sm:size-4 stroke-[2.5]" />
+                    )}
+                  </button>
+                </div>
               </div>
               <p className="text-[10px] sm:text-[11px] text-center text-zinc-500 mt-1.5 sm:mt-2 line-clamp-1">
-                Second Brain uses Gemma 4 to answer from your library or general knowledge.
+                Second Brain answers from your library or general knowledge.
               </p>
             </div>
           </div>
