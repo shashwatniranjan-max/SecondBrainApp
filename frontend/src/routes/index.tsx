@@ -6,6 +6,8 @@ import {
   Clock3,
   FileText,
   Link2,
+  Loader2,
+  MessageSquare,
   NotebookPen,
   Plus,
   TrendingUp,
@@ -21,6 +23,26 @@ import { Button } from "@/components/ui/button";
 import { knowledgeService } from "@/services/knowledge-service";
 import { useServiceQuery } from "@/hooks/use-service-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
+
+function getTimeAgo(dateInput?: string | Date): string {
+  if (!dateInput) return "Recently";
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "Recently";
+
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSec < 60) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +63,7 @@ export const Route = createFileRoute("/")({
 
 function DashboardPage() {
   const query = useServiceQuery(() => knowledgeService.getKnowledge(), []);
+  const askHistoryQuery = useServiceQuery(() => knowledgeService.getAskHistory(), []);
   const { user } = useAuth();
 
   const now = new Date();
@@ -105,8 +128,8 @@ function DashboardPage() {
           },
           {
             label: "Questions asked",
-            value: "0",
-            change: "Ask My Brain (Soon)",
+            value: askHistoryQuery.data ? askHistoryQuery.data.length.toString() : "0",
+            change: "Ask My Brain history",
             icon: BrainCircuit,
             tone: "bg-warm text-warm-foreground",
           },
@@ -173,30 +196,70 @@ function DashboardPage() {
                   </Button>
                 }
               />
-              <div className="rounded-lg border bg-card shadow-card">
-                <Link
-                  to="/ask"
-                  className="flex gap-3 border-b p-4 transition-colors hover:bg-muted/30"
-                >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
-                    <BrainCircuit className="size-4" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      What did I learn about distributed systems?
+              <div className="rounded-lg border bg-card shadow-card divide-y overflow-hidden">
+                {askHistoryQuery.status === "loading" ? (
+                  <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                    <span>Loading questions...</span>
+                  </div>
+                ) : !askHistoryQuery.data || askHistoryQuery.data.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <div className="mx-auto grid size-10 place-items-center rounded-full bg-primary-soft text-primary mb-3">
+                      <MessageSquare className="size-5" />
+                    </div>
+                    <p className="text-sm font-medium">No questions asked yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ask your brain questions grounded in your notes and saved resources.
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">2 sources · 2 days ago</p>
+                    <Button asChild size="sm" variant="outline" className="mt-4">
+                      <Link to="/ask">
+                        <BrainCircuit className="size-3.5 mr-1.5" />
+                        Ask your first question
+                      </Link>
+                    </Button>
                   </div>
-                </Link>
-                <Link to="/ask" className="flex gap-3 p-4 transition-colors hover:bg-muted/30">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-lavender text-lavender-foreground">
-                    <Link2 className="size-4" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold">Connect my notes on learning and memory</p>
-                    <p className="mt-1 text-xs text-muted-foreground">3 sources · 5 days ago</p>
-                  </div>
-                </Link>
+                ) : (
+                  askHistoryQuery.data.slice(0, 4).map((item, idx) => {
+                    const sourceCount = item.sources?.length || 0;
+                    const sourceText =
+                      sourceCount === 0
+                        ? "General knowledge"
+                        : `${sourceCount} source${sourceCount > 1 ? "s" : ""}`;
+                    const timeAgo = getTimeAgo(item.createdAt);
+
+                    return (
+                      <Link
+                        key={item.id || idx}
+                        to="/ask"
+                        search={{ q: item.question }}
+                        className="flex gap-3 p-4 transition-colors hover:bg-muted/30 group"
+                      >
+                        <span
+                          className={cn(
+                            "grid size-8 shrink-0 place-items-center rounded-md transition-colors",
+                            idx % 2 === 0
+                              ? "bg-primary-soft text-primary group-hover:bg-primary/20"
+                              : "bg-lavender text-lavender-foreground group-hover:bg-lavender/80"
+                          )}
+                        >
+                          {idx % 2 === 0 ? (
+                            <BrainCircuit className="size-4" />
+                          ) : (
+                            <MessageSquare className="size-4" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+                            {item.question}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {sourceText} · {timeAgo}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })
+                )}
               </div>
             </section>
           </div>
