@@ -7,6 +7,8 @@ class GeminiService {
   private client: GoogleGenAI | null = null;
   private embeddingModel: string;
   private generationModel: string;
+  private fallbackModel: string;
+  private imageTimeoutMs: number;
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -15,6 +17,8 @@ class GeminiService {
     }
     this.embeddingModel = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-2';
     this.generationModel = process.env.GEMINI_GENERATION_MODEL || 'gemma-4-31b-it';
+    this.fallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3-flash-preview';
+    this.imageTimeoutMs = Number(process.env.GEMMA_IMAGE_TIMEOUT_MS) || 25000;
   }
 
   private getClient(): GoogleGenAI {
@@ -141,6 +145,205 @@ class GeminiService {
 
     throw lastError || new Error('All generation models in fallback chain failed');
   }
+
+  /**
+   * Analyzes an image with Gemma 4 primary model and resilient Gemini Flash fallback
+   */
+  async analyzeImage(buffer: Buffer, mimeType: string): Promise<ImageAnalysisResult> {
+    const ai = this.getClient();
+
+    const base64Data = buffer.toString('base64');
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: base64Data,
+      },
+    };
+
+    const promptText = `Analyze this image thoroughly for personal knowledge indexing and question answering in a Second Brain application.
+Extract all meaningful information, transcribe text, and explain diagrams so the user can search and ask questions about this image later.
+
+INSTRUCTIONS:
+1. SUMMARY: Provide a concise 2-4 sentence summary of what the image depicts and its core purpose.
+2. EXTRACTED TEXT: Transcribe all visible text as accurately as possible. Preserve headings, hierarchical lists, equations, labels, code snippets, and technical terminology. If there is no visible text, write "No text present".
+3. KEY CONCEPTS: List 3-8 key concepts, technical terms, algorithms, definitions, or topics covered in the image.
+4. DETAILED EXPLANATION: Explain diagrams, charts, flowcharts, workflows, steps, system architectures, or technical illustrations in depth. Preserve relationships, arrow directions, cause-and-effect sequences, data flows, and component roles. Distinguish visible information from inferences.
+5. IMPORTANT RELATIONSHIPS: Describe key connections between components, variables, entities, or steps shown in the image.
+6. UNCERTAINTIES: Explicitly indicate any illegible text, ambiguous arrows, cropped areas, or uncertain details. Write "None" if everything is clear.
+7. GROUNDING: Do NOT invent or extrapolate information that cannot be supported by the image.
+
+RESPONSE FORMAT:
+You MUST respond with valid JSON matching this exact structure:
+{
+  "summary": "Concise summary...",
+  "extractedText": "Accurately transcribed text...",
+  "keyConcepts": ["Concept 1", "Concept 2"],
+  "detailedExplanation": "Thorough explanation of diagrams, flows, and concepts...",
+  "importantRelationships": ["Relationship 1", "Relationship 2"],
+  "uncertainties": "None"
+}`;
+
+    const textPart = { text: promptText };
+
+    // Ordered candidate models: Gemma 4 primary -> Gemini Flash fallback
+    const modelChain = [
+      this.generationModel,
+      this.fallbackModel,
+      'gemini-2.5-flash',
+    ].filter((m, i, arr) => arr.indexOf(m) === i); // Deduplicate
+
+    let lastError: any = null;
+
+    for (const model of modelChain) {
+      try {
+        console.log(`[Image Analysis] Attempting image analysis with model: ${model}...`);
+        const timeoutMs = model.startsWith('gemma') ? this.imageTimeoutMs : 35000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Model ${model} timed out after ${timeoutMs}ms`)), timeoutMs)
+        );
+
+        const response = await Promise.race([
+          ai.models.generateContent({
+            model,
+            contents: [imagePart, textPart],
+            config: {
+              temperature: 0.2,
+            },
+          }),
+          timeoutPromise,
+        ]);
+
+        if (response && response.text) {
+          console.log(`[Image Analysis] Successfully generated analysis with: ${model}`);
+          return this.parseAndValidateImageAnalysis(response.text, model);
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(
+          `[Image Analysis] Model ${model} failed (${err.status || err.message}). Trying next fallback...`
+        );
+      }
+    }
+
+    throw lastError || new Error('All image analysis models in fallback chain failed');
+  }
+
+  /**
+   * Safely parses and validates structured JSON output with fallback recovery
+   */
+  parseAndValidateImageAnalysis(rawText: string, modelName: string): ImageAnalysisResult {
+    if (!rawText || !rawText.trim()) {
+      throw new Error('Model returned empty response for image analysis');
+    }
+
+    let cleaned = rawText.trim();
+    // Strip markdown json code block if present
+    const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[1].trim();
+    }
+
+    try {
+      const parsed = JSON.parse(cleaned);
+      const summary =
+        typeof parsed.summary === 'string' && parsed.summary.trim()
+          ? parsed.summary.trim()
+          : 'Image knowledge extraction';
+      const extractedText =
+        typeof parsed.extractedText === 'string' ? parsed.extractedText.trim() : '';
+      const keyConcepts = Array.isArray(parsed.keyConcepts)
+        ? parsed.keyConcepts.map((k: any) => String(k).trim()).filter(Boolean)
+        : [];
+      const detailedExplanation =
+        typeof parsed.detailedExplanation === 'string' && parsed.detailedExplanation.trim()
+          ? parsed.detailedExplanation.trim()
+          : '';
+      const importantRelationships = Array.isArray(parsed.importantRelationships)
+        ? parsed.importantRelationships.map((r: any) => String(r).trim()).filter(Boolean)
+        : [];
+      const uncertainties =
+        typeof parsed.uncertainties === 'string' ? parsed.uncertainties.trim() : undefined;
+
+      return {
+        summary,
+        extractedText,
+        keyConcepts: keyConcepts.length > 0 ? keyConcepts : ['Image Analysis', 'Visual Knowledge'],
+        detailedExplanation: detailedExplanation || extractedText || summary,
+        importantRelationships,
+        uncertainties:
+          uncertainties && uncertainties.toLowerCase() !== 'none' ? uncertainties : undefined,
+        modelUsed: modelName,
+      };
+    } catch {
+      console.warn(
+        `[Image Analysis] JSON parse failed on ${modelName} output. Attempting heuristic extraction...`
+      );
+
+      const summaryMatch = rawText.match(/(?:summary|image summary)[:\s]+([^\n]+(?:\n[^\n#]+)*)/i);
+      const textMatch = rawText.match(/(?:extracted text|visible text)[:\s]+([^\n]+(?:\n[^\n#]+)*)/i);
+      const explanationMatch = rawText.match(
+        /(?:detailed explanation|breakdown|diagram explanation)[:\s]+([^\n]+(?:\n[^\n#]+)*)/i
+      );
+
+      const summary = summaryMatch ? summaryMatch[1].trim() : rawText.slice(0, 180) + '...';
+      const extractedText = textMatch ? textMatch[1].trim() : '';
+      const detailedExplanation = explanationMatch ? explanationMatch[1].trim() : rawText.trim();
+
+      return {
+        summary,
+        extractedText,
+        keyConcepts: ['Visual Knowledge', 'Image Analysis'],
+        detailedExplanation,
+        importantRelationships: [],
+        uncertainties: undefined,
+        modelUsed: modelName,
+      };
+    }
+  }
+
+  /**
+   * Formats structured ImageAnalysisResult into a clean, searchable Markdown representation
+   */
+  formatImageAnalysisAsMarkdown(analysis: ImageAnalysisResult): string {
+    const sections: string[] = [];
+
+    sections.push(`## Summary\n${analysis.summary}`);
+
+    if (analysis.extractedText && analysis.extractedText !== 'No text present') {
+      sections.push(`## Extracted Text & Code\n${analysis.extractedText}`);
+    }
+
+    if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
+      sections.push(`## Key Concepts\n${analysis.keyConcepts.map((c) => `- ${c}`).join('\n')}`);
+    }
+
+    if (analysis.detailedExplanation) {
+      sections.push(`## Detailed Diagram & Technical Breakdown\n${analysis.detailedExplanation}`);
+    }
+
+    if (analysis.importantRelationships && analysis.importantRelationships.length > 0) {
+      sections.push(
+        `## Key Relationships & Connections\n${analysis.importantRelationships.map((r) => `- ${r}`).join('\n')}`
+      );
+    }
+
+    if (analysis.uncertainties && analysis.uncertainties.toLowerCase() !== 'none') {
+      sections.push(`## Uncertainties & Ambiguities\n${analysis.uncertainties}`);
+    }
+
+    return sections.join('\n\n');
+  }
+}
+
+export interface ImageAnalysisResult {
+  summary: string;
+  extractedText: string;
+  keyConcepts: string[];
+  detailedExplanation: string;
+  importantRelationships: string[];
+  uncertainties?: string;
+  modelUsed?: string;
 }
 
 export const geminiService = new GeminiService();
+

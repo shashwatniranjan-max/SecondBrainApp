@@ -26,5 +26,9 @@ export const errorHandler = (
     return sendError(res, 'Invalid ID format', 400);
   }
 
+  if (err.name === 'MulterError' || (err.message && (err.message.includes('allowed') || err.message.includes('file size') || err.message.includes('limit')))) {
+    return sendError(res, err.message, 400);
+  }
+
   return sendError(res, err.message || 'Internal Server Error', 500);
 };

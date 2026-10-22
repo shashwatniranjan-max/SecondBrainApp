@@ -4,7 +4,7 @@ export interface IKnowledge extends Document {
   userId: mongoose.Types.ObjectId;
   title: string;
   description: string;
-  type: 'Note' | 'PDF' | 'Article' | 'URL';
+  type: 'Note' | 'PDF' | 'Article' | 'URL' | 'Image';
   tags: string[];
   dateAdded: Date;
   source: {
@@ -37,7 +37,7 @@ const knowledgeSchema = new Schema<IKnowledge>(
     description: { type: String, default: '' },
     type: {
       type: String,
-      enum: ['Note', 'PDF', 'Article', 'URL'],
+      enum: ['Note', 'PDF', 'Article', 'URL', 'Image'],
       required: true,
     },
     tags: { type: [String], default: [] },

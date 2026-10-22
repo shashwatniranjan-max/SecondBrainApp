@@ -1,4 +1,4 @@
-export type KnowledgeType = "Note" | "PDF" | "Article" | "URL";
+export type KnowledgeType = "Note" | "PDF" | "Article" | "URL" | "Image";
 
 export interface KnowledgeItem {
   id: string;
@@ -16,14 +16,25 @@ export interface KnowledgeItem {
   accent: "blue" | "lavender" | "mint";
 }
 
+export interface ImageAnalysisData {
+  summary: string;
+  extractedText: string;
+  keyConcepts: string[];
+  detailedExplanation: string;
+  importantRelationships: string[];
+  uncertainties?: string;
+  modelUsed?: string;
+}
+
 export interface AddKnowledgeInput {
   title: string;
   description: string;
   tags: string[];
-  mode: "upload" | "text" | "url" | "youtube";
+  mode: "upload" | "text" | "url" | "youtube" | "image";
   content: string;
   originalUrl?: string;
   file?: File;
+  imageMetadata?: ImageAnalysisData;
 }
 
 export interface BrainSource {
@@ -55,4 +66,5 @@ export interface KnowledgeService {
   getYouTubeTranscript(
     url: string,
   ): Promise<{ title: string; originalUrl: string; transcript: string[] }>;
+  analyzeImage(file: File): Promise<ImageAnalysisData>;
 }

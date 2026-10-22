@@ -112,6 +112,31 @@ export class RAGService {
       }
     }
 
+    // Check if it's an Image that needs re-analysis from R2
+    if (knowledge.type === 'Image') {
+      const isPlaceholder =
+        joinedContent.trim() === 'Your new knowledge has been processed.' ||
+        joinedContent.trim() === (knowledge.source?.originalName || '');
+
+      if ((isPlaceholder || joinedContent.length < 50) && knowledge.source?.objectKey) {
+        try {
+          const buffer = await r2Service.getFileBuffer(knowledge.source.objectKey);
+          const mimeType = knowledge.source.mimeType || 'image/jpeg';
+          const analysis = await geminiService.analyzeImage(buffer, mimeType);
+          const formatted = geminiService.formatImageAnalysisAsMarkdown(analysis);
+          knowledge.content = [formatted];
+          if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
+            knowledge.keyIdeas = analysis.keyConcepts;
+          }
+          await knowledge.save();
+          return formatted;
+        } catch (err: any) {
+          console.warn(`Could not re-analyze image from R2 for ${knowledge._id}:`, err.message);
+        }
+      }
+      return joinedContent;
+    }
+
     if (knowledge.type === 'URL' && joinedContent.startsWith('http')) {
       return `Title: ${knowledge.title}\nDescription: ${knowledge.description}\nURL: ${joinedContent}`;
     }
@@ -128,60 +153,67 @@ export class RAGService {
       throw new Error(`Knowledge document ${knowledgeId} not found`);
     }
 
-    // 1. Delete existing chunks for idempotency
-    await KnowledgeChunk.deleteMany({ knowledgeId: knowledge._id });
+    try {
+      // 1. Delete existing chunks for idempotency
+      await KnowledgeChunk.deleteMany({ knowledgeId: knowledge._id });
 
-    // 2. Extract full text
-    const text = await this.extractFullText(knowledge);
-    if (!text || text.trim().length < 15) {
+      // 2. Extract full text
+      const text = await this.extractFullText(knowledge);
+      if (!text || text.trim().length < 15) {
+        knowledge.embeddingStatus = 'completed';
+        knowledge.chunkCount = 0;
+        await knowledge.save();
+        return 0;
+      }
+
+      // 3. Split into overlapping chunks
+      const rawChunks = this.splitTextIntoChunks(text);
+      if (rawChunks.length === 0) {
+        knowledge.embeddingStatus = 'completed';
+        knowledge.chunkCount = 0;
+        await knowledge.save();
+        return 0;
+      }
+
+      // 4. Enrich chunk text with document title context for higher semantic precision
+      const enrichedChunkTexts = rawChunks.map(
+        (chunk, idx) => `[Document: ${knowledge.title} | Type: ${knowledge.type}]\n${chunk}`
+      );
+
+      // 5. Generate embeddings via Gemini API
+      const vectors = await geminiService.generateEmbeddingsBatch(enrichedChunkTexts);
+
+      // 6. Insert chunk documents
+      const chunkDocs = rawChunks.map((chunk, idx) => ({
+        knowledgeId: knowledge._id,
+        userId: knowledge.userId,
+        chunkIndex: idx,
+        text: chunk,
+        embedding: vectors[idx],
+        metadata: {
+          title: knowledge.title,
+          type: knowledge.type,
+          tags: knowledge.tags || [],
+          sourceKind: knowledge.source?.kind || 'text',
+          sourceUrl: knowledge.source?.url,
+        },
+      }));
+
+      await KnowledgeChunk.insertMany(chunkDocs);
+
+      // 7. Update parent knowledge document
       knowledge.embeddingStatus = 'completed';
-      knowledge.chunkCount = 0;
+      knowledge.chunkCount = chunkDocs.length;
       await knowledge.save();
-      return 0;
+
+      console.log(`Successfully indexed ${chunkDocs.length} chunks for "${knowledge.title}"`);
+      return chunkDocs.length;
+    } catch (err: any) {
+      console.error(`Indexing failed for knowledge ${knowledgeId}:`, err.message);
+      knowledge.embeddingStatus = 'failed';
+      await knowledge.save().catch(() => {});
+      throw err;
     }
-
-    // 3. Split into overlapping chunks
-    const rawChunks = this.splitTextIntoChunks(text);
-    if (rawChunks.length === 0) {
-      knowledge.embeddingStatus = 'completed';
-      knowledge.chunkCount = 0;
-      await knowledge.save();
-      return 0;
-    }
-
-    // 4. Enrich chunk text with document title context for higher semantic precision
-    const enrichedChunkTexts = rawChunks.map(
-      (chunk, idx) => `[Document: ${knowledge.title} | Type: ${knowledge.type}]\n${chunk}`
-    );
-
-    // 5. Generate embeddings via Gemini API
-    const vectors = await geminiService.generateEmbeddingsBatch(enrichedChunkTexts);
-
-    // 6. Insert chunk documents
-    const chunkDocs = rawChunks.map((chunk, idx) => ({
-      knowledgeId: knowledge._id,
-      userId: knowledge.userId,
-      chunkIndex: idx,
-      text: chunk,
-      embedding: vectors[idx],
-      metadata: {
-        title: knowledge.title,
-        type: knowledge.type,
-        tags: knowledge.tags || [],
-        sourceKind: knowledge.source?.kind || 'text',
-        sourceUrl: knowledge.source?.url,
-      },
-    }));
-
-    await KnowledgeChunk.insertMany(chunkDocs);
-
-    // 7. Update parent knowledge document
-    knowledge.embeddingStatus = 'completed';
-    knowledge.chunkCount = chunkDocs.length;
-    await knowledge.save();
-
-    console.log(`Successfully indexed ${chunkDocs.length} chunks for "${knowledge.title}"`);
-    return chunkDocs.length;
   }
 
   /**
@@ -420,7 +452,7 @@ REAL-WORLD TEMPORAL CONTEXT:
 - Do NOT confuse today's date with dates or deadlines mentioned inside saved notes or historical training cutoffs.
 
 CRITICAL RULES:
-1. SAVED KNOWLEDGE QUESTIONS: If the question relates to the provided excerpts from the user's library, answer using those facts and cite the source using [Source 1], [Source 2], etc.
+1. SAVED KNOWLEDGE QUESTIONS: If the question relates to the provided excerpts from the user's library (notes, images, diagrams, documents, transcripts), answer using those facts and cite the source using [Source 1], [Source 2], etc. When answering questions about saved images, diagrams, flowcharts, charts, or slides, rely on the detailed technical descriptions, components, and relationships preserved in the excerpts.
 2. GENERAL QUESTIONS: If the user asks a general question (e.g., 'What day is today?', 'What is the capital of Italy?', 'How does QuickSort work?') that has NO meaningful connection to their saved notes, answer thoroughly using your general knowledge and temporal context. DO NOT invent or cite library sources for general facts.
 3. HYBRID QUESTIONS: If a question combines user notes with general knowledge, ground the personal parts in the notes and state general facts clearly.
 4. MISSING CONTEXT: If the user explicitly asks 'What do my notes say about X?' or 'Did I write about X?' and the provided excerpts DO NOT contain that topic, state honestly: 'Based on your saved notes, you do not have any notes about X.' NEVER fabricate a personal memory.

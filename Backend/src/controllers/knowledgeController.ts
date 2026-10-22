@@ -1,8 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { Knowledge } from '../models/Knowledge';
 import { addKnowledgeSchema } from '../validators/knowledgeValidator';
 import { sendSuccess, sendError } from '../utils/response';
 import { ragService } from '../services/rag.service';
+import { geminiService, ImageAnalysisResult } from '../services/gemini.service';
+import { r2Service } from '../services/r2Service';
+import {
+  detectMagicBytes,
+  MAX_IMAGE_FILE_SIZE,
+  MAX_PDF_FILE_SIZE,
+} from '../utils/fileValidation';
 
 // GET /api/knowledge
 export const getKnowledge = async (req: Request, res: Response, next: NextFunction) => {
@@ -119,10 +127,46 @@ export const getKnowledgeById = async (req: Request, res: Response, next: NextFu
   }
 };
 
+// POST /api/knowledge/analyze-image
+export const analyzeImage = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
+
+    if (!req.file || !req.file.buffer) {
+      return sendError(res, 'No image file provided', 400);
+    }
+
+    if (req.file.size > MAX_IMAGE_FILE_SIZE) {
+      return sendError(res, 'Image file exceeds maximum limit of 15MB', 400);
+    }
+
+    const detected = detectMagicBytes(req.file.buffer);
+    if (!detected || detected.category !== 'image') {
+      return sendError(
+        res,
+        'Invalid or unsupported image file. Only genuine JPEG, PNG, and WebP images are supported.',
+        400
+      );
+    }
+
+    const analysis = await geminiService.analyzeImage(req.file.buffer, detected.mimeType);
+
+    return sendSuccess(res, analysis);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // POST /api/knowledge
 export const addKnowledge = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Unauthorized', 401);
+    }
     
     // Parse tags if sent via multipart/form-data
     if (typeof req.body.tags === 'string') {
@@ -139,51 +183,129 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
       url: 'URL',
       upload: 'PDF',
       text: 'Note',
-      youtube: 'Article'
+      youtube: 'Article',
+      image: 'Image',
     };
 
-    const sourceKind = validatedData.mode === 'url' ? 'url' : 
-                      validatedData.mode === 'upload' ? 'upload' : 
-                      validatedData.mode === 'youtube' ? 'youtube' : 'text';
+    const sourceKind =
+      validatedData.mode === 'url'
+        ? 'url'
+        : validatedData.mode === 'upload'
+          ? 'upload'
+          : validatedData.mode === 'youtube'
+            ? 'youtube'
+            : validatedData.mode === 'image'
+              ? 'image'
+              : 'text';
 
     // Set file path if uploaded
-    let fileUrl = undefined;
-    let originalName = undefined;
-    let objectKey = undefined;
-    let mimeType = undefined;
-    let size = undefined;
-    
-    if (validatedData.mode === 'upload' && req.file) {
+    let fileUrl: string | undefined = undefined;
+    let originalName: string | undefined = undefined;
+    let objectKey: string | undefined = undefined;
+    let mimeType: string | undefined = undefined;
+    let size: number | undefined = undefined;
+    let finalTitle = (validatedData.title || '').trim();
+    let finalDescription = (validatedData.description || '').trim();
+    let finalContent = validatedData.content || '';
+    let finalKeyIdeas: string[] = ['Ready for review', 'Available in your knowledge library'];
+    let finalTags = [...validatedData.tags];
+
+    if (validatedData.mode === 'image') {
+      if (req.file) {
+        if (req.file.size > MAX_IMAGE_FILE_SIZE) {
+          return sendError(res, 'Image file exceeds maximum limit of 15MB', 400);
+        }
+
+        const detected = detectMagicBytes(req.file.buffer);
+        if (!detected || detected.category !== 'image') {
+          return sendError(
+            res,
+            'Invalid or unsupported image file. Only genuine JPEG, PNG, and WebP images are supported.',
+            400
+          );
+        }
+
+        originalName = req.file.originalname;
+        mimeType = detected.mimeType;
+        size = req.file.size;
+        objectKey = `users/${userId}/knowledge/${uuidv4()}.${detected.extension}`;
+
+        // Upload original image to Cloudflare R2
+        try {
+          await r2Service.uploadFile(req.file.buffer, objectKey, mimeType);
+        } catch (r2Err: any) {
+          console.warn('R2 image upload warning:', r2Err.message);
+        }
+
+        // Check if pre-analyzed metadata was passed
+        let analysis: ImageAnalysisResult | null = null;
+        if (req.body.imageMetadata) {
+          try {
+            analysis =
+              typeof req.body.imageMetadata === 'string'
+                ? JSON.parse(req.body.imageMetadata)
+                : req.body.imageMetadata;
+          } catch (e) {}
+        }
+
+        if (!analysis) {
+          analysis = await geminiService.analyzeImage(req.file.buffer, detected.mimeType);
+        }
+
+        const formattedMarkdown = geminiService.formatImageAnalysisAsMarkdown(analysis);
+        finalContent = formattedMarkdown;
+        if (analysis.keyConcepts && analysis.keyConcepts.length > 0) {
+          finalKeyIdeas = analysis.keyConcepts;
+          finalTags = [...new Set([...finalTags, ...analysis.keyConcepts.slice(0, 4)])];
+        }
+        if (!finalTitle) {
+          finalTitle = analysis.summary.slice(0, 50).replace(/\.[^.]*$/, '') || originalName;
+        }
+        if (!finalDescription) {
+          finalDescription = analysis.summary;
+        }
+      } else if (!finalContent) {
+        return sendError(res, 'Image file or extracted content is required for image mode', 400);
+      }
+    } else if (validatedData.mode === 'upload' && req.file) {
+      if (req.file.size > MAX_PDF_FILE_SIZE) {
+        return sendError(res, 'PDF file exceeds maximum limit of 25MB', 400);
+      }
+
+      const detected = detectMagicBytes(req.file.buffer);
+      if (!detected || detected.mimeType !== 'application/pdf') {
+        return sendError(res, 'Uploaded document is not a valid PDF file.', 400);
+      }
+
       originalName = req.file.originalname;
       mimeType = req.file.mimetype;
       size = req.file.size;
-      
-      const { v4: uuidv4 } = require('uuid');
+
       const safeFilename = originalName.replace(/[^a-zA-Z0-9.-]/g, '_');
       objectKey = `users/${userId}/knowledge/${uuidv4()}-${safeFilename}`;
-      
-      // Upload to Cloudflare R2
-      const { r2Service } = require('../services/r2Service');
-      await r2Service.uploadPdf(req.file.buffer, objectKey, mimeType);
-      
+
+      await r2Service.uploadFile(req.file.buffer, objectKey, mimeType);
     } else if (validatedData.mode === 'url') {
       fileUrl = validatedData.content;
     } else if (validatedData.mode === 'youtube') {
       fileUrl = validatedData.originalUrl;
       originalName = 'YouTube Transcript';
     } else if (validatedData.mode === 'upload') {
-       // fallback if file not sent
-       originalName = 'Uploaded document';
+      originalName = 'Uploaded document';
     } else {
-       originalName = 'Pasted text';
+      originalName = 'Pasted text';
+    }
+
+    if (!finalTitle) {
+      finalTitle = originalName || 'New Knowledge';
     }
 
     const k = await Knowledge.create({
       userId,
-      title: validatedData.title,
-      description: validatedData.description || 'New knowledge ready to explore.',
+      title: finalTitle,
+      description: finalDescription || 'New knowledge ready to explore.',
       type: (typeMapping[validatedData.mode] || 'Note') as any,
-      tags: validatedData.tags,
+      tags: finalTags,
       source: {
         kind: sourceKind,
         url: fileUrl,
@@ -192,9 +314,9 @@ export const addKnowledge = async (req: Request, res: Response, next: NextFuncti
         mimeType: mimeType,
         size: size,
       },
-      content: [validatedData.content || 'Your new knowledge has been processed.'],
-      keyIdeas: ['Ready for review', 'Available in your knowledge library'],
-      readingTime: Math.ceil((validatedData.content?.length || 1000) / 1000), // Mock reading time
+      content: [finalContent || 'Your new knowledge has been processed.'],
+      keyIdeas: finalKeyIdeas,
+      readingTime: Math.ceil((finalContent?.length || 1000) / 1000),
       accent: (['blue', 'lavender', 'mint'][Math.floor(Math.random() * 3)]) as any,
       embeddingStatus: 'pending',
     });
@@ -242,8 +364,9 @@ export const deleteKnowledge = async (req: Request, res: Response, next: NextFun
 
     // Delete from R2 if it's an uploaded file
     if (k.source.objectKey) {
-      const { r2Service } = require('../services/r2Service');
-      await r2Service.deletePdf(k.source.objectKey);
+      await r2Service.deleteFile(k.source.objectKey).catch((r2Err) => {
+        console.warn('R2 file delete warning:', r2Err.message);
+      });
     }
 
     // Cascade delete vector chunks from KnowledgeChunk collection
@@ -273,8 +396,7 @@ export const serveUploadedFile = async (req: Request, res: Response, next: NextF
       return sendError(res, 'File not found or unauthorized', 404);
     }
 
-    const { r2Service } = require('../services/r2Service');
-    const presignedUrl = await r2Service.getPresignedPdfUrl(k.source.objectKey);
+    const presignedUrl = await r2Service.getPresignedUrl(k.source.objectKey);
     
     return sendSuccess(res, { url: presignedUrl });
   } catch (error) {

@@ -8,7 +8,7 @@ export interface IKnowledgeChunk extends Document {
   embedding: number[];
   metadata: {
     title: string;
-    type: 'Note' | 'PDF' | 'Article' | 'URL';
+    type: 'Note' | 'PDF' | 'Article' | 'URL' | 'Image';
     tags: string[];
     sourceKind: string;
     sourceUrl?: string;
@@ -45,7 +45,7 @@ const knowledgeChunkSchema = new Schema<IKnowledgeChunk>(
       title: { type: String, required: true },
       type: {
         type: String,
-        enum: ['Note', 'PDF', 'Article', 'URL'],
+        enum: ['Note', 'PDF', 'Article', 'URL', 'Image'],
         required: true,
       },
       tags: { type: [String], default: [] },

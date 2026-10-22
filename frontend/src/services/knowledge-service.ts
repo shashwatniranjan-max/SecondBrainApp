@@ -45,10 +45,14 @@ export const knowledgeService: KnowledgeService = {
     formData.append("description", data.description);
     formData.append("mode", data.mode);
     formData.append("tags", JSON.stringify(data.tags));
-    if (data.mode === "upload" && data.file) {
+    if ((data.mode === "upload" || data.mode === "image") && data.file) {
       formData.append("file", data.file);
-    } else {
+    }
+    if (data.content) {
       formData.append("content", data.content);
+    }
+    if (data.imageMetadata) {
+      formData.append("imageMetadata", JSON.stringify(data.imageMetadata));
     }
 
     const res = await fetch(API_URL, {
@@ -107,6 +111,22 @@ export const knowledgeService: KnowledgeService = {
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       throw new Error(json.error || "Failed to fetch YouTube transcript");
+    }
+    const json = await res.json();
+    return json.data;
+  },
+  async analyzeImage(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_URL}/analyze-image`, {
+      method: "POST",
+      headers: getHeaders(true),
+      body: formData,
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.message || json.error || "Failed to analyze image");
     }
     const json = await res.json();
     return json.data;

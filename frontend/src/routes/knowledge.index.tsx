@@ -36,13 +36,14 @@ export const Route = createFileRoute("/knowledge/")({
   component: KnowledgePage,
 });
 
-const filters = ["All", "Notes", "PDFs", "Articles", "URLs"] as const;
+const filters = ["All", "Notes", "PDFs", "Articles", "URLs", "Images"] as const;
 type Filter = (typeof filters)[number];
 const typeForFilter: Partial<Record<Filter, KnowledgeType>> = {
   Notes: "Note",
   PDFs: "PDF",
   Articles: "Article",
   URLs: "URL",
+  Images: "Image",
 };
 
 function KnowledgePage() {

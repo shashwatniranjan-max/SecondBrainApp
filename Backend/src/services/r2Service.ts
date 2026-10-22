@@ -21,7 +21,7 @@ const getClient = () => {
 };
 
 export const r2Service = {
-  uploadPdf: async (buffer: Buffer, objectKey: string, mimeType: string): Promise<void> => {
+  uploadFile: async (buffer: Buffer, objectKey: string, mimeType: string): Promise<void> => {
     const bucket = process.env.R2_BUCKET_NAME;
     if (!bucket) throw new Error('Missing R2_BUCKET_NAME');
 
@@ -36,7 +36,11 @@ export const r2Service = {
     await client.send(command);
   },
 
-  getPresignedPdfUrl: async (objectKey: string): Promise<string> => {
+  uploadPdf: async (buffer: Buffer, objectKey: string, mimeType: string): Promise<void> => {
+    return r2Service.uploadFile(buffer, objectKey, mimeType);
+  },
+
+  getPresignedUrl: async (objectKey: string): Promise<string> => {
     const bucket = process.env.R2_BUCKET_NAME;
     if (!bucket) throw new Error('Missing R2_BUCKET_NAME');
 
@@ -50,7 +54,11 @@ export const r2Service = {
     return await getSignedUrl(client, command, { expiresIn: 3600 });
   },
 
-  deletePdf: async (objectKey: string): Promise<void> => {
+  getPresignedPdfUrl: async (objectKey: string): Promise<string> => {
+    return r2Service.getPresignedUrl(objectKey);
+  },
+
+  deleteFile: async (objectKey: string): Promise<void> => {
     const bucket = process.env.R2_BUCKET_NAME;
     if (!bucket) throw new Error('Missing R2_BUCKET_NAME');
 
@@ -61,6 +69,10 @@ export const r2Service = {
     });
 
     await client.send(command);
+  },
+
+  deletePdf: async (objectKey: string): Promise<void> => {
+    return r2Service.deleteFile(objectKey);
   },
 
   getFileBuffer: async (objectKey: string): Promise<Buffer> => {

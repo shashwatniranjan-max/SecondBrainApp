@@ -4,6 +4,7 @@ import {
   Clock3,
   FileText,
   Globe2,
+  Image as ImageIcon,
   MoreHorizontal,
   NotebookPen,
   Search,
@@ -18,6 +19,7 @@ const typeIcon: Record<KnowledgeType, typeof FileText> = {
   Article: BookOpen,
   Note: NotebookPen,
   URL: Globe2,
+  Image: ImageIcon,
 };
 const accentStyle = {
   blue: "bg-primary-soft text-primary",

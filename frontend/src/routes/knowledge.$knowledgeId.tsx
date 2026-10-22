@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock3,
   ExternalLink,
+  Image as ImageIcon,
   Maximize,
   Minimize,
   Settings2,
@@ -143,6 +144,66 @@ function PdfFocusViewer({ sourceUrl, onExit }: { sourceUrl: string; onExit: () =
           </div>
         )}
         {url && <iframe src={url} className="w-full h-full border-0" title="PDF Viewer" />}
+      </div>
+    </div>
+  );
+}
+
+function ImageKnowledgeViewer({ sourceUrl, title }: { sourceUrl: string; title: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    async function fetchUrl() {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(
+          `${import.meta.env["VITE_API_URL"]?.replace(/\/$/, "") || "http://localhost:5000"}${sourceUrl}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (!res.ok) throw new Error("Failed to load image");
+        const json = await res.json();
+        setUrl(json.data.url);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (sourceUrl) fetchUrl();
+  }, [sourceUrl]);
+
+  if (loading) {
+    return (
+      <div className="mb-6 flex h-48 w-full items-center justify-center rounded-lg border bg-muted/20">
+        <span className="text-xs text-muted-foreground">Loading image preview...</span>
+      </div>
+    );
+  }
+
+  if (error || !url) {
+    return null;
+  }
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-lg border bg-card/60 p-2 shadow-sm">
+      <div className="relative flex justify-center bg-zinc-950/5 dark:bg-black/40 rounded-md overflow-hidden p-2">
+        <img
+          src={url}
+          alt={title}
+          className="max-h-[500px] w-auto max-w-full object-contain rounded"
+        />
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded bg-background/90 px-2.5 py-1 text-xs font-medium backdrop-blur transition hover:bg-background border shadow-sm"
+        >
+          Full resolution <ExternalLink className="size-3" />
+        </a>
       </div>
     </div>
   );
@@ -337,6 +398,13 @@ function KnowledgeDetailPage() {
               </p>
             )}
 
+            {itemQuery.data.type === "Image" && itemQuery.data.sourceUrl && (
+              <ImageKnowledgeViewer
+                sourceUrl={itemQuery.data.sourceUrl}
+                title={itemQuery.data.title}
+              />
+            )}
+
             {itemQuery.data.type === "URL" ? (
               <div className="my-[2em]">
                 <UrlEmbed
@@ -407,6 +475,12 @@ function KnowledgeDetailPage() {
               <div className="py-8">
                 <h3 className="mb-6 text-xl font-bold">Notes & highlights</h3>
                 <div className="space-y-6">
+                  {itemQuery.data.type === "Image" && itemQuery.data.sourceUrl && (
+                    <ImageKnowledgeViewer
+                      sourceUrl={itemQuery.data.sourceUrl}
+                      title={itemQuery.data.title}
+                    />
+                  )}
                   {itemQuery.data.type === "URL" ? (
                     <div className="my-6">
                       <UrlEmbed
@@ -481,6 +555,36 @@ function KnowledgeDetailPage() {
                   ))}
                 </div>
               </div>
+              {itemQuery.data.type === "Image" && itemQuery.data.sourceUrl && (
+                <Button
+                  className="w-full h-11"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!itemQuery.data || !itemQuery.data.sourceUrl) return;
+                    const sourceUrl = itemQuery.data.sourceUrl;
+                    const newWindow = window.open("", "_blank");
+                    if (!newWindow) return;
+                    try {
+                      const token = localStorage.getItem("token");
+                      const res = await fetch(
+                        `${import.meta.env["VITE_API_URL"]?.replace(/\/$/, "") || "http://localhost:5000"}${sourceUrl}`,
+                        {
+                          headers: { Authorization: `Bearer ${token}` },
+                        },
+                      );
+                      if (!res.ok) throw new Error("Failed to load image");
+                      const json = await res.json();
+                      newWindow.location.href = json.data.url;
+                    } catch (err) {
+                      console.error(err);
+                      newWindow.close();
+                    }
+                  }}
+                >
+                  <ImageIcon className="size-4 mr-2" />
+                  View Original Image
+                </Button>
+              )}
               {itemQuery.data.type === "PDF" && itemQuery.data.sourceUrl && (
                 <Button
                   className="w-full h-11"
