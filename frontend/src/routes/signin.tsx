@@ -67,7 +67,7 @@ function SignInPage() {
             <span className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-sidebar bg-mint-strong" />
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome back</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Sign in to access your Second Brain</p>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in to access your Virtual Brain</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

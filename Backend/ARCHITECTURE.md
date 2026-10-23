@@ -1,4 +1,4 @@
-# Second Brain Backend Architecture - V1
+# Virtual Brain Backend Architecture - V1
 
 ## Frontend Context Analysis
 Based on `my-smart-second-brain/src/types/knowledge.ts` and `src/services/knowledge-service.ts`, the frontend expects:

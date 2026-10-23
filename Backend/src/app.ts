@@ -27,7 +27,7 @@ app.use('/api/youtube', youtubeRoutes);
 
 // Base route for health check
 app.get('/', (req, res) => {
-  res.json({ message: 'Second Brain API is running' });
+  res.json({ message: 'Virtual Brain API is running' });
 });
 
 // Error handling middleware should be last

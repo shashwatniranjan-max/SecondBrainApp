@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Second Brain" },
-      { name: "description", content: "Manage your Second Brain workspace preferences." },
-      { property: "og:title", content: "Settings — Second Brain" },
-      { property: "og:description", content: "Manage your Second Brain workspace preferences." },
+      { title: "Settings — Virtual Brain" },
+      { name: "description", content: "Manage your Virtual Brain workspace preferences." },
+      { property: "og:title", content: "Settings — Virtual Brain" },
+      { property: "og:description", content: "Manage your Virtual Brain workspace preferences." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

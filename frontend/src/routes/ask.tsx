@@ -29,12 +29,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/ask")({
   head: () => ({
     meta: [
-      { title: "Ask My Brain — Second Brain" },
+      { title: "Ask My Brain — Virtual Brain" },
       {
         name: "description",
         content: "Ask questions grounded in your personal knowledge library.",
       },
-      { property: "og:title", content: "Ask My Brain — Second Brain" },
+      { property: "og:title", content: "Ask My Brain — Virtual Brain" },
       {
         property: "og:description",
         content: "Ask questions grounded in your personal knowledge library.",
@@ -220,7 +220,7 @@ function AskPage() {
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-100 truncate">Second Brain</h2>
+                  <h2 className="text-sm font-semibold text-zinc-100 truncate">Virtual Brain</h2>
                   <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 shrink-0">
                     Knowledge AI
                   </span>
@@ -322,7 +322,7 @@ function AskPage() {
                     {/* Header bar: Badge and grounding info */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-zinc-200">Second Brain</span>
+                        <span className="text-xs font-semibold text-zinc-200">Virtual Brain</span>
                       </div>
                       {msg.sources && msg.sources.length > 0 ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-medium">
@@ -445,7 +445,7 @@ function AskPage() {
                   </div>
                   <div className="flex-1 space-y-2 pt-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-zinc-200">Second Brain</span>
+                      <span className="text-xs font-semibold text-zinc-200">Virtual Brain</span>
                       <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 font-medium">
                         Gemma 4
                       </span>
@@ -591,7 +591,7 @@ function AskPage() {
                     placeholder={
                       selectedImageItem
                         ? `Ask a question about "${selectedImageItem.title}"...`
-                        : "Message Second Brain..."
+                        : "Message Virtual Brain..."
                     }
                     rows={1}
                     className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent text-white placeholder-zinc-400 py-2 pr-11 text-sm md:text-[15px] focus-visible:ring-0 shadow-none"
@@ -617,7 +617,7 @@ function AskPage() {
                 </div>
               </div>
               <p className="text-[10px] sm:text-[11px] text-center text-zinc-500 mt-1.5 sm:mt-2 line-clamp-1">
-                Second Brain answers from your library or general knowledge.
+                Virtual Brain answers from your library or general knowledge.
               </p>
             </div>
           </div>

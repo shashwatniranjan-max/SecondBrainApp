@@ -64,9 +64,9 @@ function useFocusPreferences() {
 export const Route = createFileRoute("/knowledge/$knowledgeId")({
   head: () => ({
     meta: [
-      { title: "Knowledge Detail — Second Brain" },
+      { title: "Knowledge Detail — Virtual Brain" },
       { name: "description", content: "Review saved knowledge, key ideas, and related material." },
-      { property: "og:title", content: "Knowledge Detail — Second Brain" },
+      { property: "og:title", content: "Knowledge Detail — Virtual Brain" },
       {
         property: "og:description",
         content: "Review saved knowledge, key ideas, and related material.",

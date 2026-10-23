@@ -77,9 +77,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Second Brain" },
+      { title: "Virtual Brain" },
       { name: "description", content: "A personal knowledge and learning workspace." },
-      { name: "author", content: "Second Brain" },
+      { name: "author", content: "Virtual Brain" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

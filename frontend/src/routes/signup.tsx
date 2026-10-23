@@ -69,7 +69,7 @@ function SignUpPage() {
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Create an account</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Start building your Second Brain today
+            Start building your Virtual Brain today
           </p>
         </div>
 

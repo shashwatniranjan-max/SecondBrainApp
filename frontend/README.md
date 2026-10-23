@@ -1,8 +1,8 @@
-# My Smart Second Brain
+# My Smart Virtual Brain
 
-Build a polished SaaS web application called "Second Brain".
+Build a polished SaaS web application called "Virtual Brain".
 
-Second Brain is an AI-powered personal knowledge and learning system where users can save notes, PDFs, articles, URLs and other learning material, organize their knowledge, search it, and ask an AI assistant questions about their own knowledge.
+Virtual Brain is an AI-powered personal knowledge and learning system where users can save notes, PDFs, articles, URLs and other learning material, organize their knowledge, search it, and ask an AI assistant questions about their own knowledge.
 
 IMPORTANT:
 This is the FRONTEND/PRODUCT UI prototype first.

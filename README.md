@@ -1,6 +1,6 @@
-# 🧠 Smart Second Brain
+# 🧠 Smart Virtual Brain
 
-A full-stack web application designed to act as your digital second brain. Store, organize, and retrieve your knowledge items—including rich-text notes, web links, and PDF documents—all in one secure place.
+A full-stack web application designed to act as your digital virtual brain. Store, organize, and retrieve your knowledge items—including rich-text notes, web links, and PDF documents—all in one secure place.
 
 ![Dashboard Preview](assets/dashboard.png)
 

@@ -38,7 +38,7 @@ function Logo() {
         <BrainCircuit className="size-5" />
         <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-sidebar bg-mint-strong" />
       </span>
-      <span className="text-[17px] font-bold text-foreground">Second Brain</span>
+      <span className="text-[17px] font-bold text-foreground">Virtual Brain</span>
     </Link>
   );
 }

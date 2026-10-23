@@ -29,12 +29,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/add")({
   head: () => ({
     meta: [
-      { title: "Add Knowledge — Second Brain" },
-      { name: "description", content: "Add documents, images, notes, and links to your Second Brain." },
-      { property: "og:title", content: "Add Knowledge — Second Brain" },
+      { title: "Add Knowledge — Virtual Brain" },
+      { name: "description", content: "Add documents, images, notes, and links to your Virtual Brain." },
+      { property: "og:title", content: "Add Knowledge — Virtual Brain" },
       {
         property: "og:description",
-        content: "Add documents, images, notes, and links to your Second Brain.",
+        content: "Add documents, images, notes, and links to your Virtual Brain.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -275,7 +275,7 @@ function AddKnowledgePage() {
     <AppShell title="Add Knowledge" eyebrow="Library">
       <div className="mx-auto max-w-4xl">
         <div className="mb-7">
-          <h2 className="text-3xl font-bold">Grow your second brain</h2>
+          <h2 className="text-3xl font-bold">Grow your virtual brain</h2>
           <p className="mt-2 text-muted-foreground">
             Add something worth remembering. We’ll make it searchable and connected.
           </p>

@@ -434,7 +434,7 @@ export class RAGService {
       minute: '2-digit',
     });
 
-    const systemInstruction = `You are Second Brain's intelligent knowledge assistant, powered by Gemma 4.
+    const systemInstruction = `You are Virtual Brain's intelligent knowledge assistant, powered by Gemma 4.
 Your job is to answer user questions using their personal knowledge library when relevant, while also comfortably answering general questions.
 
 REAL-WORLD TEMPORAL CONTEXT:
@@ -452,7 +452,7 @@ CRITICAL RULES:
 
     let contextSection = '';
     if (chunks.length > 0) {
-      contextSection = `RELEVANT EXCERPTS FROM USER'S SECOND BRAIN LIBRARY:\n` +
+      contextSection = `RELEVANT EXCERPTS FROM USER'S VIRTUAL BRAIN LIBRARY:\n` +
         chunks
           .map(
             (c, i) =>

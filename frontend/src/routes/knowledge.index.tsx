@@ -19,15 +19,15 @@ import {
 export const Route = createFileRoute("/knowledge/")({
   head: () => ({
     meta: [
-      { title: "Knowledge Library — Second Brain" },
+      { title: "Knowledge Library — Virtual Brain" },
       {
         name: "description",
-        content: "Search and organize everything saved in your Second Brain.",
+        content: "Search and organize everything saved in your Virtual Brain.",
       },
-      { property: "og:title", content: "Knowledge Library — Second Brain" },
+      { property: "og:title", content: "Knowledge Library — Virtual Brain" },
       {
         property: "og:description",
-        content: "Search and organize everything saved in your Second Brain.",
+        content: "Search and organize everything saved in your Virtual Brain.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

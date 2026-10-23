@@ -179,7 +179,7 @@ export const askBrain = async (req: Request, res: Response, next: NextFunction) 
       suggestedQuestions.push(`Summarize the key takeaways`);
     } else {
       suggestedQuestions.push('What topics are currently in my library?');
-      suggestedQuestions.push('How can I organize my second brain notes?');
+      suggestedQuestions.push('How can I organize my virtual brain notes?');
       suggestedQuestions.push('Give me 3 productivity tips');
     }
 

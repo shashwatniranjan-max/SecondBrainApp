@@ -47,9 +47,9 @@ function getTimeAgo(dateInput?: string | Date): string {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Second Brain" },
+      { title: "Dashboard — Virtual Brain" },
       { name: "description", content: "Your personal knowledge workspace and learning dashboard." },
-      { property: "og:title", content: "Dashboard — Second Brain" },
+      { property: "og:title", content: "Dashboard — Virtual Brain" },
       {
         property: "og:description",
         content: "Your personal knowledge workspace and learning dashboard.",

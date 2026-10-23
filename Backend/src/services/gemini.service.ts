@@ -160,7 +160,7 @@ class GeminiService {
       },
     };
 
-    const promptText = `Analyze this image thoroughly for personal knowledge indexing and question answering in a Second Brain application.
+    const promptText = `Analyze this image thoroughly for personal knowledge indexing and question answering in a Virtual Brain application.
 Extract all meaningful information, transcribe text, and explain diagrams so the user can search and ask questions about this image later.
 
 INSTRUCTIONS:
@@ -369,7 +369,7 @@ You MUST respond with valid JSON matching this exact structure:
       priorAnalysisContext = `\n\nPreviously extracted text/analysis for this image:\n${extractedText.slice(0, 3000)}`;
     }
 
-    const promptText = `You are a helpful assistant for the user's personal knowledge base in the Second Brain application.
+    const promptText = `You are a helpful assistant for the user's personal knowledge base in the Virtual Brain application.
 The user is asking a question about the attached image titled "${imageTitle}".
 
 INSTRUCTIONS:

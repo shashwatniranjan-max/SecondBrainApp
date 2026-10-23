@@ -83,7 +83,7 @@ export const knowledgeService: KnowledgeService = {
     });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
-      throw new Error(json.message || json.error || "Failed to query Second Brain");
+      throw new Error(json.message || json.error || "Failed to query Virtual Brain");
     }
     const json = await res.json();
     return json.data;
