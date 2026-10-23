@@ -163,13 +163,14 @@ function AddKnowledgePage() {
   };
 
   const handleFetchYoutube = async () => {
-    if (!content.trim()) return;
+    const trimmed = content.trim();
+    if (!trimmed) return;
     setFetchingYoutube(true);
     setYoutubeError("");
     try {
-      const data = await knowledgeService.getYouTubeTranscript(content);
+      const data = await knowledgeService.getYouTubeTranscript(trimmed);
       setYoutubeTranscript(data);
-      if (!title) setTitle(data.title);
+      if (!title || title === "YouTube Video") setTitle(data.title);
     } catch (err) {
       setYoutubeError((err as Error).message || "Failed to fetch transcript");
     } finally {
@@ -630,14 +631,21 @@ function AddKnowledgePage() {
                     <Youtube className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="youtube-url"
-                      type="url"
+                      type="text"
                       value={content}
                       onChange={(event) => {
                         setContent(event.target.value);
                         setYoutubeTranscript(null);
+                        setYoutubeError("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !youtubeTranscript && content.trim()) {
+                          e.preventDefault();
+                          handleFetchYoutube();
+                        }
                       }}
                       className="h-11 bg-background pl-9"
-                      placeholder="https://www.youtube.com/watch?v=..."
+                      placeholder="https://www.youtube.com/watch?v=... or youtu.be/..."
                       required
                     />
                   </div>
